@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables (IMPORTANT: Never commit these!)
+.env
+.env.local
+.env.production
+*.env
+
+# Build outputs
+dist/
+build/
+*.log
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Frontend build
+.cache/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Python cache (from scripts)
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Test files
+test-email.js
