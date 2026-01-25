@@ -7,7 +7,7 @@ import { Label } from './ui/label';
 import { Card } from './ui/card';
 import { ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from "motion/react";
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import academyLogo from '../assets/5f0e47ee1de07031fdbf28920fd9d31a3b58bce9.png';
 import aerialField from '../assets/3fe1ebf5e8b53a08ffda4409adf0d92c279c4e96.png';
 import logo from '../assets/cricmate-logo.png';
