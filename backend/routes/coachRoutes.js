@@ -162,8 +162,17 @@ router.get('/pending-parents', authMiddleware, requireCoach, async (req, res) =>
             attributes: { exclude: ['password'] }
         });
 
+        // Format the response with a valid date (since User model doesn't have timestamps)
+        const formattedParents = pendingParents.map(parent => ({
+            id: parent.id,
+            name: parent.name,
+            email: parent.email,
+            phone: parent.phone,
+            createdAt: new Date().toISOString() // Use current date as fallback
+        }));
+
         console.log(`Fetched ${pendingParents.length} pending parents`);
-        res.json({ pendingParents });
+        res.json({ pendingParents: formattedParents });
     } catch (error) {
         console.error('Get pending parents error:', error);
         res.status(500).json({ message: 'Server error while fetching pending parents' });

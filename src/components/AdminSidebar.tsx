@@ -30,7 +30,7 @@ export function AdminSidebar() {
   return (
     <div className="w-64 bg-sidebar h-screen flex flex-col">
       <div className="p-6 border-b border-sidebar-border">
-        <button 
+        <button
           onClick={() => navigate('/')}
           className="flex items-center gap-3 w-full hover:opacity-80 transition-opacity"
         >
@@ -48,16 +48,15 @@ export function AdminSidebar() {
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
-          
+
           return (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
                   ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                   : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-              }`}
+                }`}
             >
               <Icon className="w-5 h-5" />
               <span>{item.label}</span>
