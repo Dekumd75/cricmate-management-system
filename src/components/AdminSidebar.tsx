@@ -8,6 +8,7 @@ import {
   UserCog
 } from 'lucide-react';
 import { useApp } from './AppContext';
+import authService from '../services/authService';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
@@ -23,6 +24,8 @@ export function AdminSidebar() {
   const { setUser } = useApp();
 
   const handleLogout = () => {
+    // Clear localStorage and React state
+    authService.logout();
     setUser(null);
     navigate('/');
   };
@@ -54,8 +57,8 @@ export function AdminSidebar() {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
                 }`}
             >
               <Icon className="w-5 h-5" />

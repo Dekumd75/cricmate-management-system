@@ -3,6 +3,8 @@ const AuditLog = require('./AuditLog');
 const PlayerProfile = require('./PlayerProfile');
 const InviteCode = require('./InviteCode');
 const PasswordReset = require('./PasswordReset');
+const LoginAttempt = require('./LoginAttempt');
+const PasswordHistory = require('./PasswordHistory');
 
 // Define associations
 // Note: AuditLog.userID maps to 'performedBy' column in DB
@@ -41,11 +43,25 @@ InviteCode.belongsTo(User, {
     as: 'player'
 });
 
+// PasswordHistory associations
+User.hasMany(PasswordHistory, {
+    foreignKey: 'userID',
+    sourceKey: 'id',
+    as: 'passwordHistories'
+});
+PasswordHistory.belongsTo(User, {
+    foreignKey: 'userID',
+    targetKey: 'id',
+    as: 'user'
+});
+
 // Export all models
 module.exports = {
     User,
     AuditLog,
     PlayerProfile,
     InviteCode,
-    PasswordReset
+    PasswordReset,
+    LoginAttempt,
+    PasswordHistory
 };

@@ -24,12 +24,25 @@ const cricketImages = [
 
 export function LoginScreen() {
   const navigate = useNavigate();
-  const { setUser } = useApp();
+  const { setUser, user } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      const roleRoutes = {
+        admin: '/admin/dashboard',
+        coach: '/coach/dashboard',
+        player: '/player/dashboard',
+        parent: '/parent/dashboard'
+      };
+      navigate(roleRoutes[user.role], { replace: true });
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     const interval = setInterval(() => {

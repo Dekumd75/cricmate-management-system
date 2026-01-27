@@ -96,6 +96,7 @@ interface PlayerMatchStats {
 interface AppContextType {
   user: User | null;
   setUser: (user: User | null) => void;
+  isLoading: boolean;
   players: Player[];
   setPlayers: (players: Player[]) => void;
   payments: Payment[];
@@ -121,6 +122,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true); // Track if we're still loading from localStorage
   const [players, setPlayers] = useState<Player[]>([]);
 
   const [payments, setPayments] = useState<Payment[]>([
@@ -190,6 +192,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
+  // Load user from localStorage on mount (persist authentication across refreshes)
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('token');
+
+    if (storedUser && storedToken) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        console.log('User loaded from localStorage:', parsedUser);
+      } catch (error) {
+        console.error('Failed to parse stored user:', error);
+        // Clear invalid data
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
+    }
+
+    // Mark loading as complete
+    setIsLoading(false);
+  }, []);
+
   // Apply theme to document
   useEffect(() => {
     if (theme === 'dark') {
@@ -203,6 +227,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={{
       user,
       setUser,
+      isLoading,
       players,
       setPlayers,
       payments,

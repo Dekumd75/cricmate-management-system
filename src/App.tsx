@@ -5,6 +5,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { AppProvider } from "./components/AppContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LandingScreen } from "./components/LandingScreen";
 import { LoginScreen } from "./components/LoginScreen";
 import { ForgotPasswordScreen } from "./components/ForgotPasswordScreen";
@@ -24,7 +25,6 @@ import { BestXIScreen } from "./components/BestXIScreen";
 import { PlayerProfile } from "./components/PlayerProfile";
 import { LinkChildScreen } from "./components/LinkChildScreen";
 import { MessagesScreen } from "./components/MessagesScreen";
-import { UserManagementScreen } from "./components/UserManagementScreen";
 import { SettingsScreen } from "./components/SettingsScreen";
 import { PaymentGatewayScreen } from "./components/PaymentGatewayScreen";
 import { PlayerStatisticsScreen } from "./components/PlayerStatisticsScreen";
@@ -45,112 +45,218 @@ export default function App() {
             element={<ParentRegistrationScreen />}
           />
 
-          {/* Admin Routes */}
+          {/* Convenience redirects for base role paths */}
+          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="/coach" element={<Navigate to="/coach/dashboard" replace />} />
+          <Route path="/player" element={<Navigate to="/player/dashboard" replace />} />
+          <Route path="/parent" element={<Navigate to="/parent/dashboard" replace />} />
+
+          {/* Admin Routes - Protected */}
           <Route
             path="/admin/dashboard"
-            element={<AdminDashboard />}
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/admin/user-management"
-            element={<AdminUserManagement />}
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminUserManagement />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/admin/players"
-            element={<PlayerManagement />}
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <PlayerManagement />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/admin/reports"
-            element={<AdminReportsScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminReportsScreen />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/admin/settings"
-            element={<SettingsScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <SettingsScreen />
+              </ProtectedRoute>
+            }
           />
 
-          {/* Coach Routes */}
+          {/* Coach Routes - Protected */}
           <Route
             path="/coach/dashboard"
-            element={<CoachDashboard />}
+            element={
+              <ProtectedRoute allowedRoles={['coach']}>
+                <CoachDashboard />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/coach/players"
-            element={<PlayerManagement />}
+            element={
+              <ProtectedRoute allowedRoles={['coach']}>
+                <PlayerManagement />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/coach/player-profile"
-            element={<PlayerProfile />}
+            element={
+              <ProtectedRoute allowedRoles={['coach']}>
+                <PlayerProfile />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/coach/attendance"
-            element={<AttendanceScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['coach']}>
+                <AttendanceScreen />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/coach/statistics"
-            element={<PlayerStatisticsScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['coach']}>
+                <PlayerStatisticsScreen />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/coach/best-xi"
-            element={<BestXIScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['coach']}>
+                <BestXIScreen />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/coach/messages"
-            element={<MessagesScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['coach']}>
+                <MessagesScreen />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/coach/reports"
-            element={<CoachReportsScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['coach']}>
+                <CoachReportsScreen />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/coach/settings"
-            element={<SettingsScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['coach']}>
+                <SettingsScreen />
+              </ProtectedRoute>
+            }
           />
 
-          {/* Player Routes */}
+          {/* Player Routes - Protected */}
           <Route
             path="/player/dashboard"
-            element={<PlayerDashboard />}
+            element={
+              <ProtectedRoute allowedRoles={['player']}>
+                <PlayerDashboard />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/player/payments"
-            element={<PlayerDashboard />}
+            element={
+              <ProtectedRoute allowedRoles={['player']}>
+                <PlayerDashboard />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/player/payment"
-            element={<PaymentGatewayScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['player']}>
+                <PaymentGatewayScreen />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/player/settings"
-            element={<SettingsScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['player']}>
+                <SettingsScreen />
+              </ProtectedRoute>
+            }
           />
 
-          {/* Parent Routes */}
+          {/* Parent Routes - Protected */}
           <Route
             path="/parent/dashboard"
-            element={<ParentDashboard />}
+            element={
+              <ProtectedRoute allowedRoles={['parent']}>
+                <ParentDashboard />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/parent/link-child"
-            element={<LinkChildScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['parent']}>
+                <LinkChildScreen />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/parent/player-profile"
-            element={<PlayerProfile />}
+            element={
+              <ProtectedRoute allowedRoles={['parent']}>
+                <PlayerProfile />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/parent/payments"
-            element={<ParentPaymentsScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['parent']}>
+                <ParentPaymentsScreen />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/parent/payment"
-            element={<PaymentGatewayScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['parent']}>
+                <PaymentGatewayScreen />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/parent/messages"
-            element={<MessagesScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['parent']}>
+                <MessagesScreen />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/parent/settings"
-            element={<SettingsScreen />}
+            element={
+              <ProtectedRoute allowedRoles={['parent']}>
+                <SettingsScreen />
+              </ProtectedRoute>
+            }
           />
 
           {/* Fallback */}

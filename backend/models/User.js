@@ -40,6 +40,28 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING,
         allowNull: true,
         defaultValue: 'active'
+    },
+    // Security: Account lockout fields
+    failedLoginAttempts: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    lockoutUntil: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null
+    },
+    lastLoginAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null
+    },
+    // Security: Track when password was last changed (for token invalidation)
+    passwordChangedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null
     }
 }, {
     tableName: 'user', // Use existing lowercase table name

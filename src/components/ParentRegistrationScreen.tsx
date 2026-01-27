@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
@@ -12,7 +12,7 @@ import academyLogo from 'figma:asset/5f0e47ee1de07031fdbf28920fd9d31a3b58bce9.pn
 
 export function ParentRegistrationScreen() {
   const navigate = useNavigate();
-  const { setUser, players, parents, setParents } = useApp();
+  const { setUser, user, players, parents, setParents } = useApp();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -27,6 +27,19 @@ export function ParentRegistrationScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [linkedChildName, setLinkedChildName] = useState<string | null>(null);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      const roleRoutes = {
+        admin: '/admin/dashboard',
+        coach: '/coach/dashboard',
+        player: '/player/dashboard',
+        parent: '/parent/dashboard'
+      };
+      navigate(roleRoutes[user.role], { replace: true });
+    }
+  }, [user, navigate]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -49,8 +62,8 @@ export function ParentRegistrationScreen() {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -294,7 +307,7 @@ export function ParentRegistrationScreen() {
                         <Input
                           id="password"
                           type="password"
-                          placeholder="Min. 6 characters"
+                          placeholder="Min. 8 characters"
                           value={formData.password}
                           onChange={(e) => handleInputChange('password', e.target.value)}
                           className={`pl-10 ${errors.password ? 'border-destructive' : ''}`}

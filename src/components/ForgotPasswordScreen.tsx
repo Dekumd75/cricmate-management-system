@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useApp } from './AppContext';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -24,10 +25,24 @@ const cricketImages = [
 
 export function ForgotPasswordScreen() {
     const navigate = useNavigate();
+    const { user } = useApp();
     const [email, setEmail] = useState('');
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Redirect if already logged in
+    useEffect(() => {
+        if (user) {
+            const roleRoutes = {
+                admin: '/admin/dashboard',
+                coach: '/coach/dashboard',
+                player: '/player/dashboard',
+                parent: '/parent/dashboard'
+            };
+            navigate(roleRoutes[user.role], { replace: true });
+        }
+    }, [user, navigate]);
 
     useEffect(() => {
         const interval = setInterval(() => {

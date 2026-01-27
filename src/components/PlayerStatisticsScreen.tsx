@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CoachSidebar } from './CoachSidebar';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { useApp } from './AppContext';
 import { Plus, Search, ChevronRight, CheckCircle, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from './ui/checkbox';
+import api from '../services/api';
 
 type MatchStatus = 'draft' | 'squad-selected' | 'completed';
 
@@ -17,6 +20,8 @@ interface Match {
   opponent: string;
   date: string;
   venue: string;
+  matchType?: 'Practice match' | 'Tournament match';
+  result?: 'Won' | 'Lost' | 'Draw' | 'No Result';
   status: MatchStatus;
   squadIds: string[];
 }
@@ -44,10 +49,23 @@ export function PlayerStatisticsScreen() {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [currentStatPlayerId, setCurrentStatPlayerId] = useState<string | null>(null);
 
+  // Real players from database
+  const [realPlayers, setRealPlayers] = useState<any[]>([]);
+  const [isLoadingPlayers, setIsLoadingPlayers] = useState(true);
+
+  // Opponents from database
+  const [opponents, setOpponents] = useState<any[]>([]);
+  const [isLoadingOpponents, setIsLoadingOpponents] = useState(true);
+  const [showAddOpponentDialog, setShowAddOpponentDialog] = useState(false);
+  const [newOpponentName, setNewOpponentName] = useState('');
+  const [newOpponentPhone, setNewOpponentPhone] = useState('');
+
   // Match form state
   const [opponent, setOpponent] = useState('');
   const [matchDate, setMatchDate] = useState('');
   const [venue, setVenue] = useState('');
+  const [matchType, setMatchType] = useState<'Practice match' | 'Tournament match'>('Practice match');
+  const [result, setResult] = useState<'Won' | 'Lost' | 'Draw' | 'No Result'>('No Result');
 
   // Player stats form state
   const [runs, setRuns] = useState('');
@@ -60,6 +78,93 @@ export function PlayerStatisticsScreen() {
   const [catches, setCatches] = useState('');
   const [isOut, setIsOut] = useState(false);
 
+  // Fetch real players from database
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      try {
+        setIsLoadingPlayers(true);
+        const response = await api.get('/coach/players');
+        // Backend returns { players: [...] }, not direct array
+        const playersData = response.data.players.map((p: any) => ({
+          id: p.id.toString(),
+          name: p.name,
+          photo: p.photo || 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=400',
+          age: p.age || 0,
+          role: p.role || 'Player',
+          stats: p.stats || {
+            matches: 0,
+            runs: 0,
+            wickets: 0,
+            average: 0,
+            strikeRate: 0,
+            economy: 0
+          }
+        }));
+        setRealPlayers(playersData);
+      } catch (error) {
+        console.error('Error fetching players:', error);
+        toast.error('Failed to load players');
+      } finally {
+        setIsLoadingPlayers(false);
+      }
+    };
+
+    fetchPlayers();
+  }, []);
+
+  // Fetch opponents from database (frontend only - mock for now)
+  useEffect(() => {
+    const fetchOpponents = async () => {
+      try {
+        setIsLoadingOpponents(true);
+        // TODO: Replace with actual API endpoint when backend is ready
+        // const response = await api.get('/coach/opponents');
+        // setOpponents(response.data.opponents);
+
+        // For now, using mock data
+        setOpponents([
+          { id: '1', name: 'India U19', phone: '+94771234567' },
+          { id: '2', name: 'Pakistan Cricket Club', phone: '+94771234568' },
+          { id: '3', name: 'Bangladesh Academy', phone: '+94771234569' }
+        ]);
+      } catch (error) {
+        console.error('Error fetching opponents:', error);
+        // Don't show error for mock data
+      } finally {
+        setIsLoadingOpponents(false);
+      }
+    };
+
+    fetchOpponents();
+  }, []);
+
+  const handleAddOpponent = () => {
+    if (!newOpponentName || !newOpponentPhone) {
+      toast.error('Please provide opponent name and phone number');
+      return;
+    }
+
+    // TODO: Replace with actual API call when backend is ready
+    // const response = await api.post('/coach/opponents', { name: newOpponentName, phone: newOpponentPhone });
+
+    // For now, add to local state
+    const newOpponent = {
+      id: Date.now().toString(),
+      name: newOpponentName,
+      phone: newOpponentPhone
+    };
+
+    setOpponents([...opponents, newOpponent]);
+    setOpponent(newOpponentName); // Select the newly added opponent
+
+    // Reset form and close dialog
+    setNewOpponentName('');
+    setNewOpponentPhone('');
+    setShowAddOpponentDialog(false);
+
+    toast.success(`Opponent "${newOpponentName}" added successfully!`);
+  };
+
   const handleCreateMatch = () => {
     if (!opponent || !matchDate || !venue) {
       toast.error('Please fill in all match details');
@@ -71,6 +176,8 @@ export function PlayerStatisticsScreen() {
       opponent,
       date: matchDate,
       venue,
+      matchType,
+      result,
       status: 'draft',
       squadIds: []
     };
@@ -83,6 +190,8 @@ export function PlayerStatisticsScreen() {
     setOpponent('');
     setMatchDate('');
     setVenue('');
+    setMatchType('Practice match');
+    setResult('No Result');
 
     toast.success('Match created successfully!');
   };
@@ -122,7 +231,7 @@ export function PlayerStatisticsScreen() {
   const handleSavePlayerStats = () => {
     if (!currentMatch || !currentStatPlayerId) return;
 
-    const player = players.find(p => p.id === currentStatPlayerId);
+    const player = realPlayers.find(p => p.id === currentStatPlayerId);
     if (!player) return;
 
     // Validate and ensure no negative values
@@ -230,11 +339,11 @@ export function PlayerStatisticsScreen() {
     setPlayers(updatedPlayers);
   };
 
-  const filteredPlayers = players.filter(player =>
+  const filteredPlayers = realPlayers.filter(player =>
     player.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const squadPlayers = currentMatch?.squadIds.map(id => players.find(p => p.id === id)).filter(Boolean) || [];
+  const squadPlayers = currentMatch?.squadIds.map(id => realPlayers.find(p => p.id === id)).filter(Boolean) || [];
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -276,12 +385,22 @@ export function PlayerStatisticsScreen() {
                           <p className="text-sm text-muted-foreground">
                             {new Date(match.date).toLocaleDateString()} • {match.venue}
                           </p>
-                          <div className="mt-2">
-                            {match.status === 'draft' && (
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-muted text-muted-foreground">
-                                Draft
-                              </span>
-                            )}
+                          {(match.matchType || match.result) && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {match.matchType && <span>{match.matchType}</span>}
+                              {match.matchType && match.result && <span> • </span>}
+                              {match.result && <span className={
+                                match.result === 'Won' ? 'text-success font-medium' :
+                                  match.result === 'Lost' ? 'text-destructive font-medium' :
+                                    'font-medium'
+                              }>{match.result}</span>}
+                            </p>
+                          )}
+                          <div className="mt-2 flex gap-2 flex-wrap">                           {match.status === 'draft' && (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-muted text-muted-foreground">
+                              Draft
+                            </span>
+                          )}
                             {match.status === 'squad-selected' && (
                               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary/10 text-primary">
                                 Squad Selected ({match.squadIds.length} players)
@@ -334,12 +453,35 @@ export function PlayerStatisticsScreen() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="opponent">Opponent Team</Label>
-                    <Input
-                      id="opponent"
-                      placeholder="Enter opponent team name"
-                      value={opponent}
-                      onChange={(e) => setOpponent(e.target.value)}
-                    />
+                    <div className="flex gap-2">
+                      <Select value={opponent} onValueChange={setOpponent}>
+                        <SelectTrigger id="opponent" className="flex-1">
+                          <SelectValue placeholder="Select opponent team" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {isLoadingOpponents ? (
+                            <SelectItem value="loading" disabled>Loading opponents...</SelectItem>
+                          ) : opponents.length === 0 ? (
+                            <SelectItem value="empty" disabled>No opponents yet</SelectItem>
+                          ) : (
+                            opponents.map((opp) => (
+                              <SelectItem key={opp.id} value={opp.name}>
+                                {opp.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowAddOpponentDialog(true)}
+                        className="shrink-0"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add New
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -360,6 +502,34 @@ export function PlayerStatisticsScreen() {
                       value={venue}
                       onChange={(e) => setVenue(e.target.value)}
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="matchType">Match Type</Label>
+                    <Select value={matchType} onValueChange={(value: any) => setMatchType(value)}>
+                      <SelectTrigger id="matchType">
+                        <SelectValue placeholder="Select match type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Practice match">Practice match</SelectItem>
+                        <SelectItem value="Tournament match">Tournament match</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="result">Result</Label>
+                    <Select value={result} onValueChange={(value: any) => setResult(value)}>
+                      <SelectTrigger id="result">
+                        <SelectValue placeholder="Select result" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Won">Won</SelectItem>
+                        <SelectItem value="Lost">Lost</SelectItem>
+                        <SelectItem value="Draw">Draw</SelectItem>
+                        <SelectItem value="No Result">No Result</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="flex gap-3 pt-4">
@@ -427,35 +597,45 @@ export function PlayerStatisticsScreen() {
                 </div>
 
                 <div className="space-y-2">
-                  {filteredPlayers.map((player) => {
-                    const isSelected = selectedPlayerIds.includes(player.id);
-                    return (
-                      <div
-                        key={player.id}
-                        className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors ${isSelected
+                  {isLoadingPlayers ? (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">Loading players...</p>
+                    </div>
+                  ) : filteredPlayers.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">No players found</p>
+                    </div>
+                  ) : (
+                    filteredPlayers.map((player) => {
+                      const isSelected = selectedPlayerIds.includes(player.id);
+                      return (
+                        <div
+                          key={player.id}
+                          className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors ${isSelected
                             ? 'border-primary bg-primary/5'
                             : 'border-border hover:bg-muted'
-                          }`}
-                        onClick={() => togglePlayerSelection(player.id)}
-                      >
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => togglePlayerSelection(player.id)}
-                        />
-                        <img
-                          src={player.photo}
-                          alt={player.name}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                        <div className="flex-1">
-                          <p>{player.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Age {player.age} • {player.role}
-                          </p>
+                            }`}
+                          onClick={() => togglePlayerSelection(player.id)}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => togglePlayerSelection(player.id)}
+                          />
+                          <img
+                            src={player.photo}
+                            alt={player.name}
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                          <div className="flex-1">
+                            <p>{player.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Age {player.age} • {player.role}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </Card>
             </div>
@@ -520,8 +700,8 @@ export function PlayerStatisticsScreen() {
                         <div
                           key={player.id}
                           className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${isActive
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:bg-muted'
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:bg-muted'
                             }`}
                           onClick={() => {
                             setCurrentStatPlayerId(player.id);
@@ -563,7 +743,7 @@ export function PlayerStatisticsScreen() {
                   {currentStatPlayerId ? (
                     <>
                       <h3 className="mb-6">
-                        Enter Stats for {players.find(p => p.id === currentStatPlayerId)?.name}
+                        Enter Stats for {realPlayers.find(p => p.id === currentStatPlayerId)?.name}
                       </h3>
 
                       <div className="space-y-6">
@@ -670,7 +850,7 @@ export function PlayerStatisticsScreen() {
                           <Checkbox
                             id="isOut"
                             checked={isOut}
-                            onCheckedChange={(checked) => setIsOut(checked as boolean)}
+                            onCheckedChange={(checked: boolean) => setIsOut(checked)}
                           />
                           <Label htmlFor="isOut" className="cursor-pointer">
                             Player was out
@@ -699,6 +879,53 @@ export function PlayerStatisticsScreen() {
           )}
         </div>
       </div>
+
+      {/* Add New Opponent Dialog */}
+      <Dialog open={showAddOpponentDialog} onOpenChange={setShowAddOpponentDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Opponent</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="newOpponentName">Opponent Name</Label>
+              <Input
+                id="newOpponentName"
+                placeholder="Enter opponent team name"
+                value={newOpponentName}
+                onChange={(e) => setNewOpponentName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="newOpponentPhone">Phone Number</Label>
+              <Input
+                id="newOpponentPhone"
+                placeholder="Enter phone number"
+                value={newOpponentPhone}
+                onChange={(e) => setNewOpponentPhone(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddOpponentDialog(false);
+                setNewOpponentName('');
+                setNewOpponentPhone('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAddOpponent}>
+              Add Opponent
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

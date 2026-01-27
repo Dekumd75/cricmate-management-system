@@ -1,5 +1,5 @@
 const express = require('express');
-const { User, AuditLog, PlayerProfile, InviteCode } = require('../models');
+const { User, AuditLog, PlayerProfile, InviteCode, LoginAttempt } = require('../models');
 const { authMiddleware, requireAdmin } = require('../middleware/authMiddleware');
 const { sendParentApprovalEmail, sendParentRejectionEmail } = require('../services/emailService');
 
@@ -424,6 +424,152 @@ router.post('/reject-parent/:id', authMiddleware, requireAdmin, async (req, res)
     } catch (error) {
         console.error('Reject parent error:', error);
         res.status(500).json({ message: 'Server error while rejecting parent' });
+    }
+});
+
+// ============ Level 2 Security Routes ============
+
+// @route   POST /api/admin/unlock-account/:id
+// @desc    Manually unlock a locked user account
+// @access  Admin only
+router.post('/unlock-account/:id', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const userId = req.params.id;
+
+        const user = await User.findByPk(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Reset lockout fields
+        await user.update({
+            failedLoginAttempts: 0,
+            lockoutUntil: null
+        });
+
+        // Log in audit log
+        await AuditLog.create({
+            userID: req.user.id,
+            action: 'ACCOUNT_UNLOCKED',
+            entity: 'User',
+            entityID: user.id,
+            timestamp: new Date()
+        });
+
+        res.json({
+            message: 'Account unlocked successfully',
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email
+            }
+        });
+    } catch (error) {
+        console.error('Unlock account error:', error);
+        res.status(500).json({ message: 'Server error while unlocking account' });
+    }
+});
+
+// @route   GET /api/admin/login-attempts/:userId
+// @desc    View login attempt history for a specific user
+// @access  Admin only
+router.get('/login-attempts/:userId', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        const user = await User.findByPk(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const attempts = await LoginAttempt.findAll({
+            where: { email: user.email },
+            order: [['attemptTime', 'DESC']],
+            limit: 50
+        });
+
+        res.json({
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email
+            },
+            attempts: attempts.map(attempt => ({
+                id: attempt.id,
+                ipAddress: attempt.ipAddress,
+                userAgent: attempt.userAgent,
+                attemptTime: attempt.attemptTime,
+                success: attempt.success
+            }))
+        });
+    } catch (error) {
+        console.error('Get login attempts error:', error);
+        res.status(500).json({ message: 'Server error while fetching login attempts' });
+    }
+});
+
+// @route   GET /api/admin/security-logs
+// @desc    View recent security events (failed logins, lockouts, etc.)
+// @access  Admin only
+router.get('/security-logs', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 100;
+
+        // Get recent login attempts
+        const recentAttempts = await LoginAttempt.findAll({
+            order: [['attemptTime', 'DESC']],
+            limit: limit
+        });
+
+        // Get locked accounts
+        const lockedAccounts = await User.findAll({
+            where: {
+                lockoutUntil: {
+                    [require('sequelize').Op.gt]: new Date()
+                }
+            },
+            attributes: ['id', 'name', 'email', 'lockoutUntil', 'failedLoginAttempts']
+        });
+
+        // Get security-related audit logs
+        const securityLogs = await AuditLog.findAll({
+            where: {
+                action: [
+                    'PASSWORD_CHANGED',
+                    'PASSWORD_RESET_REQUESTED',
+                    'PASSWORD_RESET_COMPLETED',
+                    'ACCOUNT_UNLOCKED'
+                ]
+            },
+            include: [{
+                model: User,
+                as: 'user',
+                attributes: ['id', 'name', 'email'],
+                required: false
+            }],
+            order: [['timestamp', 'DESC']],
+            limit: 50
+        });
+
+        res.json({
+            recentAttempts: recentAttempts.map(attempt => ({
+                email: attempt.email,
+                ipAddress: attempt.ipAddress,
+                attemptTime: attempt.attemptTime,
+                success: attempt.success
+            })),
+            lockedAccounts: lockedAccounts.map(account => ({
+                id: account.id,
+                name: account.name,
+                email: account.email,
+                lockoutUntil: account.lockoutUntil,
+                failedAttempts: account.failedLoginAttempts
+            })),
+            securityLogs
+        });
+    } catch (error) {
+        console.error('Get security logs error:', error);
+        res.status(500).json({ message: 'Server error while fetching security logs' });
     }
 });
 
