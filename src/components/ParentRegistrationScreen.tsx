@@ -7,13 +7,13 @@ import { Label } from './ui/label';
 import { useApp } from './AppContext';
 import { motion } from 'motion/react';
 import { UserPlus, Mail, Phone, Lock, Key, ArrowLeft, CheckCircle } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import academyLogo from 'figma:asset/5f0e47ee1de07031fdbf28920fd9d31a3b58bce9.png';
 
 export function ParentRegistrationScreen() {
   const navigate = useNavigate();
   const { setUser, players, parents, setParents } = useApp();
-  
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -22,7 +22,7 @@ export function ParentRegistrationScreen() {
     confirmPassword: '',
     inviteCode: ''
   });
-  
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
@@ -75,7 +75,7 @@ export function ParentRegistrationScreen() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Please fix the errors in the form');
       return;
@@ -85,7 +85,7 @@ export function ParentRegistrationScreen() {
 
     try {
       const authService = (await import('../services/authService')).default;
-      
+
       // Register the parent
       const response = await authService.register({
         name: formData.name,
@@ -95,24 +95,33 @@ export function ParentRegistrationScreen() {
         role: 'parent'
       });
 
-      // Create user session
-      setUser({
-        id: response.user.id.toString(),
-        name: response.user.name,
-        email: response.user.email,
-        role: 'parent' as const,
-        phone: response.user.phone
-      });
+      // Don't auto-login if account is pending
+      if (response.user.accountStatus === 'pending') {
+        setRegistrationSuccess(true);
+        setIsSubmitting(false);
 
-      // Show success
-      toast.success('Registration successful!');
-      setRegistrationSuccess(true);
-      setIsSubmitting(false);
+        // Redirect to login after showing success message
+        setTimeout(() => {
+          navigate('/login');
+        }, 4000);
+      } else {
+        // For non-parent roles or if somehow approved immediately
+        setUser({
+          id: response.user.id.toString(),
+          name: response.user.name,
+          email: response.user.email,
+          role: 'parent' as const,
+          phone: response.user.phone
+        });
 
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        navigate('/parent/dashboard');
-      }, 2000);
+        toast.success('Registration successful!');
+        setRegistrationSuccess(true);
+        setIsSubmitting(false);
+
+        setTimeout(() => {
+          navigate('/parent/dashboard');
+        }, 2000);
+      }
     } catch (err: any) {
       console.error('Registration error:', err);
       const errorMessage = err.response?.data?.message || 'Registration failed. Please try again.';
@@ -134,38 +143,40 @@ export function ParentRegistrationScreen() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6"
+              className="w-20 h-20 rounded-full bg-warning/10 flex items-center justify-center mx-auto mb-6"
             >
-              <CheckCircle className="w-12 h-12 text-success" />
+              <CheckCircle className="w-12 h-12 text-warning" />
             </motion.div>
-            
-            <h2 className="mb-2">Registration Successful!</h2>
-            
-            {linkedChildName ? (
-              <>
-                <p className="text-muted-foreground mb-2">
-                  Welcome to CricMate, {formData.name}!
-                </p>
-                <p className="text-muted-foreground">
-                  Your account has been successfully linked to <strong>{linkedChildName}</strong>.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-muted-foreground mb-2">
-                  Welcome to CricMate, {formData.name}!
-                </p>
-                <p className="text-muted-foreground">
-                  You can link your child's profile using an invite code.
-                </p>
-              </>
-            )}
-            
+
+            <h2 className="mb-2">Registration Submitted!</h2>
+
+            <p className="text-muted-foreground mb-4">
+              Welcome to CricMate, {formData.name}!
+            </p>
+
+            <div className="bg-warning/10 border border-warning/20 rounded-lg p-4 mb-4">
+              <p className="text-sm font-medium text-warning mb-2">
+                ⏳ Pending Approval
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Your account is currently pending approval by an administrator.
+                You will receive an email notification once your account has been approved.
+              </p>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              Please wait for approval before attempting to log in. An admin email notification has been sent.
+            </p>
+
             <div className="mt-6 flex items-center justify-center gap-2">
               <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
               <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
               <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
+
+            <p className="text-xs text-muted-foreground mt-4">
+              Redirecting to login page...
+            </p>
           </Card>
         </motion.div>
       </div>
@@ -187,8 +198,8 @@ export function ParentRegistrationScreen() {
           </Button>
 
           <div className="flex items-center gap-4 mb-4">
-            <img 
-              src={academyLogo} 
+            <img
+              src={academyLogo}
               alt="CricMate"
               className="h-16 w-16 object-contain rounded-lg bg-white/10 backdrop-blur-md p-2"
             />
@@ -326,7 +337,7 @@ export function ParentRegistrationScreen() {
                   <div>
                     <h3 className="mb-1">Link Your Child (Optional)</h3>
                     <p className="text-sm text-muted-foreground">
-                      Have an invite code? Enter it below to immediately link your child's profile. 
+                      Have an invite code? Enter it below to immediately link your child's profile.
                       You can also link your child later from your dashboard.
                     </p>
                   </div>

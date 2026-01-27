@@ -4,7 +4,7 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { useApp } from './AppContext';
 import { Download, FileText, Users, CreditCard, Calendar, UserCheck, TrendingUp } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface ReportCard {
   id: string;
@@ -78,11 +78,11 @@ export function AdminReportsScreen() {
 
   const generateCSV = (data: any[], filename: string) => {
     if (data.length === 0) return '';
-    
+
     const headers = Object.keys(data[0]);
     const csvContent = [
       headers.join(','),
-      ...data.map(row => 
+      ...data.map(row =>
         headers.map(header => {
           const value = row[header];
           // Escape commas and quotes
@@ -93,14 +93,14 @@ export function AdminReportsScreen() {
         }).join(',')
       )
     ].join('\n');
-    
+
     return csvContent;
   };
 
   const downloadReport = (reportId: string) => {
     let csvData = '';
     let filename = '';
-    
+
     switch (reportId) {
       case 'all-payments':
         const paymentData = payments.map(p => ({
@@ -114,7 +114,7 @@ export function AdminReportsScreen() {
         csvData = generateCSV(paymentData, 'all-payments');
         filename = 'full-payment-report.csv';
         break;
-        
+
       case 'overdue-payments':
         const overdueData = payments
           .filter(p => p.status === 'overdue')
@@ -131,7 +131,7 @@ export function AdminReportsScreen() {
         csvData = generateCSV(overdueData, 'overdue-payments');
         filename = 'overdue-payments-report.csv';
         break;
-        
+
       case 'coaches-list':
         const coachData = coaches.map(c => ({
           'Name': c.name,
@@ -142,7 +142,7 @@ export function AdminReportsScreen() {
         csvData = generateCSV(coachData, 'coaches-list');
         filename = 'coaches-list.csv';
         break;
-        
+
       case 'players-list':
         const playerData = players.map(p => ({
           'Name': p.name,
@@ -157,7 +157,7 @@ export function AdminReportsScreen() {
         csvData = generateCSV(playerData, 'players-list');
         filename = 'players-list.csv';
         break;
-        
+
       case 'parents-list':
         const parentData = parents.map(parent => {
           const linkedPlayer = players.find(p => p.id === parent.linkedPlayerId);
@@ -171,7 +171,7 @@ export function AdminReportsScreen() {
         csvData = generateCSV(parentData, 'parents-list');
         filename = 'parents-list.csv';
         break;
-        
+
       case 'attendance-report':
         const attendanceData = players.map(p => ({
           'Player Name': p.name,
@@ -185,7 +185,7 @@ export function AdminReportsScreen() {
         csvData = generateCSV(attendanceData, 'attendance-report');
         filename = 'attendance-report.csv';
         break;
-        
+
       case 'performance-report':
         const performanceData = players.map(p => ({
           'Player Name': p.name,
@@ -200,7 +200,7 @@ export function AdminReportsScreen() {
         csvData = generateCSV(performanceData, 'performance-report');
         filename = 'performance-report.csv';
         break;
-        
+
       case 'monthly-summary':
         const summaryData = [{
           'Report Month': new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
@@ -216,12 +216,12 @@ export function AdminReportsScreen() {
         csvData = generateCSV(summaryData, 'monthly-summary');
         filename = 'monthly-summary-report.csv';
         break;
-        
+
       default:
         toast.error('Report type not found');
         return;
     }
-    
+
     // Create and download CSV file
     const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -232,15 +232,15 @@ export function AdminReportsScreen() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     toast.success(`${filename} downloaded successfully!`);
   };
 
   const categories = ['All', 'Financial', 'Personnel', 'Operations', 'Summary'];
   const [selectedCategory, setSelectedCategory] = React.useState('All');
 
-  const filteredReports = selectedCategory === 'All' 
-    ? reports 
+  const filteredReports = selectedCategory === 'All'
+    ? reports
     : reports.filter(r => r.category === selectedCategory);
 
   return (
@@ -282,7 +282,7 @@ export function AdminReportsScreen() {
                 </div>
               </div>
             </Card>
-            
+
             <Card className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -294,7 +294,7 @@ export function AdminReportsScreen() {
                 </div>
               </div>
             </Card>
-            
+
             <Card className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
@@ -306,7 +306,7 @@ export function AdminReportsScreen() {
                 </div>
               </div>
             </Card>
-            
+
             <Card className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
@@ -340,7 +340,7 @@ export function AdminReportsScreen() {
                       </p>
                     </div>
                   </div>
-                  
+
                   <Button
                     onClick={() => downloadReport(report.id)}
                     className="w-full bg-primary hover:bg-primary/90"

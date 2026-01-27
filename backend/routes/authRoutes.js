@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { User, AuditLog, PasswordReset } = require('../models');
 const { authMiddleware, JWT_SECRET } = require('../middleware/authMiddleware');
-const { sendPasswordResetEmail } = require('../services/emailService');
+const { sendPasswordResetEmail, sendParentRegistrationNotification } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -30,13 +30,17 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ message: 'User with this email already exists' });
         }
 
+        // Determine account status - parents start as pending, others are active
+        const accountStatus = role === 'parent' ? 'pending' : 'active';
+
         //Create new user (password will be hashed automatically by the model hook)
         const user = await User.create({
             name,
             email,
             password,
             phone,
-            role: role || 'parent' // Default to parent if not specified
+            role: role || 'parent', // Default to parent if not specified
+            accountStatus
         });
 
         // Log registration in audit log
@@ -48,6 +52,16 @@ router.post('/register', async (req, res) => {
             timestamp: new Date()
         });
 
+        // Send notification email to admin if parent registration
+        if (role === 'parent') {
+            try {
+                await sendParentRegistrationNotification(user);
+                console.log('Admin notification sent for parent registration:', user.email);
+            } catch (emailError) {
+                console.error('Failed to send admin notification, but registration completed:', emailError);
+            }
+        }
+
         // Generate JWT token
         const token = jwt.sign(
             { id: user.id, email: user.email, role: user.role },
@@ -57,14 +71,15 @@ router.post('/register', async (req, res) => {
 
         // Return user data without password
         res.status(201).json({
-            message: 'User registered successfully',
+            message: role === 'parent' ? 'Registration successful! Your account is pending approval.' : 'User registered successfully',
             token,
             user: {
                 id: user.id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                phone: user.phone
+                phone: user.phone,
+                accountStatus: user.accountStatus
             }
         });
     } catch (error) {
@@ -95,6 +110,21 @@ router.post('/login', async (req, res) => {
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        // Check account status
+        if (user.accountStatus === 'pending') {
+            return res.status(403).json({
+                message: 'Your account is still pending approval. Please wait for an administrator to approve your account.',
+                status: 'pending'
+            });
+        }
+
+        if (user.accountStatus !== 'active') {
+            return res.status(403).json({
+                message: 'Your account has been deactivated. Please contact support.',
+                status: user.accountStatus
+            });
         }
 
         // Log login in audit log
@@ -200,6 +230,70 @@ router.put('/change-password', authMiddleware, async (req, res) => {
     } catch (error) {
         console.error('Change password error:', error);
         res.status(500).json({ message: 'Server error while changing password' });
+    }
+});
+
+// @route   PUT /api/auth/update-contact
+// @desc    Update user contact details
+// @access  Private
+router.put('/update-contact', authMiddleware, async (req, res) => {
+    try {
+        const { email, phone } = req.body;
+
+        // Validate input
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ message: 'Invalid email format' });
+        }
+
+        // Get current user
+        const user = await User.findByPk(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Check if email is being changed and if new email already exists
+        if (email !== user.email) {
+            const existingUser = await User.findOne({ where: { email } });
+            if (existingUser) {
+                return res.status(400).json({ message: 'Email already in use by another user' });
+            }
+        }
+
+        // Update user contact details
+        await user.update({
+            email,
+            phone: phone || user.phone
+        });
+
+        // Log contact update in audit log
+        await AuditLog.create({
+            userID: user.id,
+            action: 'CONTACT_DETAILS_UPDATED',
+            entity: 'User',
+            entityID: user.id,
+            timestamp: new Date()
+        });
+
+        // Return updated user data
+        res.json({
+            message: 'Contact details updated successfully',
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                phone: user.phone
+            }
+        });
+    } catch (error) {
+        console.error('Update contact error:', error);
+        res.status(500).json({ message: 'Server error while updating contact details' });
     }
 });
 

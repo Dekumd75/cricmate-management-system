@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminSidebar } from './AdminSidebar';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
@@ -7,14 +7,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
 import { useApp } from './AppContext';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import adminService from '../services/adminService';
 import { Search, UserPlus, Mail, Calendar } from 'lucide-react';
 
+interface PendingParent {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  createdAt: string;
+}
+
 export function AdminUserManagement() {
-  const { players, pendingParents, setPendingParents, coaches, setCoaches } = useApp();
+  const { players, coaches, setCoaches } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateCoachOpen, setIsCreateCoachOpen] = useState(false);
+  const [pendingParents, setPendingParents] = useState<PendingParent[]>([]);
+  const [loadingParents, setLoadingParents] = useState(true);
   const [newCoach, setNewCoach] = useState({
     name: '',
     email: '',
@@ -32,19 +42,50 @@ export function AdminUserManagement() {
       role: 'Parent'
     }));
 
-  const handleApproveParent = (parentId: string, parentName: string) => {
-    setPendingParents(pendingParents.filter(p => p.id !== parentId));
-    toast.success(`${parentName} has been approved!`);
+  // Fetch pending parents from API
+  useEffect(() => {
+    const fetchPendingParents = async () => {
+      try {
+        const response = await adminService.getPendingParents();
+        setPendingParents(response.pendingParents || []);
+      } catch (error) {
+        console.error('Failed to fetch pending parents:', error);
+        toast.error('Failed to load pending parents');
+      } finally {
+        setLoadingParents(false);
+      }
+    };
+
+    fetchPendingParents();
+  }, []);
+
+  const handleApproveParent = async (parentId: number, parentName: string) => {
+    try {
+      await adminService.approveParent(parentId);
+      setPendingParents(pendingParents.filter(p => p.id !== parentId));
+      toast.success(`${parentName} has been approved!`, {
+        description: 'An email notification has been sent to the parent.'
+      });
+    } catch (error) {
+      console.error('Failed to approve parent:', error);
+      toast.error('Failed to approve parent. Please try again.');
+    }
   };
 
-  const handleRejectParent = (parentId: string, parentName: string) => {
-    setPendingParents(pendingParents.filter(p => p.id !== parentId));
-    toast.error(`${parentName}'s registration has been rejected.`);
+  const handleRejectParent = async (parentId: number, parentName: string) => {
+    try {
+      await adminService.rejectParent(parentId);
+      setPendingParents(pendingParents.filter(p => p.id !== parentId));
+      toast.error(`${parentName}'s registration has been rejected.`);
+    } catch (error) {
+      console.error('Failed to reject parent:', error);
+      toast.error('Failed to reject parent. Please try again.');
+    }
   };
 
   const handleCreateCoach = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       const response = await adminService.createCoach({
         name: newCoach.name,
@@ -208,7 +249,7 @@ export function AdminUserManagement() {
                               <td className="py-4 px-4">
                                 <div className="flex items-center gap-2">
                                   <Calendar className="w-4 h-4 text-muted-foreground" />
-                                  {new Date(parent.dateRegistered).toLocaleDateString()}
+                                  {new Date(parent.createdAt).toLocaleDateString()}
                                 </div>
                               </td>
                               <td className="py-4 px-4">

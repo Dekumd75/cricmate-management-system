@@ -22,26 +22,29 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Copy, CheckCircle } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import adminService from '../services/adminService';
+import coachService from '../services/coachService';
 
 interface PlayerRegistrationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: (player: any) => void;
+  userRole?: 'admin' | 'coach';
 }
 
 export function PlayerRegistrationDialog({
   open,
   onOpenChange,
   onSuccess,
+  userRole = 'admin',
 }: PlayerRegistrationDialogProps) {
   const [formData, setFormData] = useState({
     name: '',
-    age: '',
+    dob: '',
     role: '',
     email: '',
-   phone: '',
+    phone: '',
     password: '',
     bowlingStyle: '',
     battingStyle: '',
@@ -62,9 +65,9 @@ export function PlayerRegistrationDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
-    if (!formData.name || !formData.age || !formData.role || !formData.email || !formData.phone || !formData.password || !formData.bowlingStyle || !formData.battingStyle) {
+    if (!formData.name || !formData.dob || !formData.role || !formData.email || !formData.phone || !formData.password || !formData.bowlingStyle || !formData.battingStyle) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -75,14 +78,16 @@ export function PlayerRegistrationDialog({
 
   const handleGenerateCode = async (generate: boolean) => {
     setShowConfirmDialog(false);
-    
+
     try {
-      const response = await adminService.createPlayer({
+      // Use appropriate service based on user role
+      const service = userRole === 'coach' ? coachService : adminService;
+      const response = await service.createPlayer({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
-        age: parseInt(formData.age),
+        dob: formData.dob,
         battingStyle: formData.battingStyle,
         bowlingStyle: formData.bowlingStyle,
         playerRole: formData.role,
@@ -97,13 +102,13 @@ export function PlayerRegistrationDialog({
       const newPlayer = {
         id: response.player.id.toString(),
         name: response.player.name,
-        age: response.player.age,
+        dob: formData.dob,
         role: formData.role,
         photo: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=200',
         stats: { matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, economy: 0 },
         inviteCode: response.inviteCode || '',
       };
-      
+
       if (!response.inviteCode) {
         onSuccess(newPlayer);
         resetForm();
@@ -124,13 +129,13 @@ export function PlayerRegistrationDialog({
     const newPlayer = {
       id: Date.now().toString(),
       name: formData.name,
-      age: parseInt(formData.age),
+      dob: formData.dob,
       role: formData.role,
       photo: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=200',
       stats: { matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, economy: 0 },
       inviteCode: inviteCode,
     };
-    
+
     onSuccess(newPlayer);
     setShowCodeDialog(false);
     resetForm();
@@ -146,7 +151,7 @@ export function PlayerRegistrationDialog({
   const resetForm = () => {
     setFormData({
       name: '',
-      age: '',
+      dob: '',
       role: '',
       email: '',
       phone: '',
@@ -168,7 +173,7 @@ export function PlayerRegistrationDialog({
               Fill in the player details to register them in the system.
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name *</Label>
@@ -182,15 +187,13 @@ export function PlayerRegistrationDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="age">Age *</Label>
+              <Label htmlFor="dob">Date of Birth *</Label>
               <Input
-                id="age"
-                type="number"
-                value={formData.age}
-                onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                placeholder="Enter player's age"
-                min="5"
-                max="25"
+                id="dob"
+                type="date"
+                value={formData.dob}
+                onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+                max={new Date().toISOString().split('T')[0]}
                 required
               />
             </div>
@@ -199,7 +202,7 @@ export function PlayerRegistrationDialog({
               <Label htmlFor="role">Player Role *</Label>
               <Select
                 value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value })}
+                onValueChange={(value: string) => setFormData({ ...formData, role: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select player role" />
@@ -253,7 +256,7 @@ export function PlayerRegistrationDialog({
               <Label htmlFor="battingStyle">Batting Style *</Label>
               <Select
                 value={formData.battingStyle}
-                onValueChange={(value) => setFormData({ ...formData, battingStyle: value })}
+                onValueChange={(value: string) => setFormData({ ...formData, battingStyle: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select batting style" />
@@ -269,7 +272,7 @@ export function PlayerRegistrationDialog({
               <Label htmlFor="bowlingStyle">Bowling Style *</Label>
               <Select
                 value={formData.bowlingStyle}
-                onValueChange={(value) => setFormData({ ...formData, bowlingStyle: value })}
+                onValueChange={(value: string) => setFormData({ ...formData, bowlingStyle: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select bowling style" />
@@ -319,7 +322,7 @@ export function PlayerRegistrationDialog({
             <AlertDialogCancel onClick={() => handleGenerateCode(false)}>
               No, Skip
             </AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => handleGenerateCode(true)}
               className="bg-primary hover:bg-primary/90"
             >
@@ -341,7 +344,7 @@ export function PlayerRegistrationDialog({
               Share this code with the player or their parent to link their account.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="py-6">
             <div className="bg-muted rounded-lg p-6 text-center">
               <p className="text-sm text-muted-foreground mb-2">Invite Code</p>
@@ -360,7 +363,7 @@ export function PlayerRegistrationDialog({
           </div>
 
           <DialogFooter>
-            <Button 
+            <Button
               onClick={handleCodeDialogClose}
               className="w-full bg-primary hover:bg-primary/90"
             >

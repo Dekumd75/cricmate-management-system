@@ -70,6 +70,19 @@ export function LoginScreen() {
       navigate(roleRoutes[response.user.role as keyof typeof roleRoutes] || '/');
     } catch (err: any) {
       console.error('Login error:', err);
+
+      // Check if account is pending approval
+      if (err.response?.data?.status === 'pending') {
+        const errorMessage = 'Your account is still pending approval';
+        setError(errorMessage);
+        toast.error(errorMessage, {
+          description: 'Please wait for an administrator to approve your account. You will receive an email notification once approved.',
+          duration: 8000
+        });
+        return;
+      }
+
+      // Handle other errors
       const errorMessage = err.response?.data?.message || 'Login failed. Please check your credentials.';
       setError(errorMessage);
       toast.error(errorMessage, { duration: 5000 });

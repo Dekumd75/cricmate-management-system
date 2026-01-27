@@ -208,22 +208,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   ]);
 
-  const [pendingParents, setPendingParents] = useState<PendingParent[]>([
-    {
-      id: 'pp1',
-      name: 'Nimal Perera',
-      email: 'nimal.perera@email.com',
-      dateRegistered: '2025-10-17',
-      playerId: '2'
-    },
-    {
-      id: 'pp2',
-      name: 'Saman Silva',
-      email: 'saman.silva@email.com',
-      dateRegistered: '2025-10-18',
-      playerId: '3'
-    }
-  ]);
+  const [pendingParents, setPendingParents] = useState<PendingParent[]>([]);
 
   const [parents, setParents] = useState<Parent[]>([
     {
@@ -278,15 +263,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   return (
-    <AppContext.Provider value={{ 
-      user, 
-      setUser, 
-      players, 
-      setPlayers, 
+    <AppContext.Provider value={{
+      user,
+      setUser,
+      players,
+      setPlayers,
       payments,
       setPayments,
-      attendance, 
-      setAttendance, 
+      attendance,
+      setAttendance,
       messages,
       pendingParents,
       setPendingParents,

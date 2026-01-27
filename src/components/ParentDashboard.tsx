@@ -4,16 +4,16 @@ import { Button } from './ui/button';
 import { useApp } from './AppContext';
 import { User, MessageSquare, Link2, Eye, CreditCard } from 'lucide-react';
 import { ParentSidebar } from './ParentSidebar';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function ParentDashboard() {
   const navigate = useNavigate();
   const { user, players, payments, messages } = useApp();
-  
+
   // Get all linked children
   const linkedPlayerIds = user?.linkedPlayerIds || [];
   const linkedChildren = players.filter(p => linkedPlayerIds.includes(p.id));
-  
+
   // Get payments and messages for all linked children
   const allChildrenPayments = payments.filter(p => linkedPlayerIds.includes(p.playerId));
   const overduePayments = allChildrenPayments.filter(p => p.status === 'overdue');
@@ -139,9 +139,9 @@ export function ParentDashboard() {
                     const pendingCount = childPayments.filter(p => p.status === 'pending').length;
 
                     return (
-                      <Card 
-                        key={child.id} 
-                        className="p-6 cursor-pointer hover:shadow-lg transition-shadow" 
+                      <Card
+                        key={child.id}
+                        className="p-6 cursor-pointer hover:shadow-lg transition-shadow"
                         onClick={() => handleViewProfile(child.id)}
                       >
                         <div className="flex items-start gap-4 mb-4">

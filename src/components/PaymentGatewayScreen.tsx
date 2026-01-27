@@ -6,14 +6,14 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { useApp } from './AppContext';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { CreditCard, Building2, Wallet, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
 
 export function PaymentGatewayScreen() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useApp();
-  
+
   // Get payment details from navigation state
   const paymentDetails = location.state?.payment || {
     amount: 3000,
@@ -69,16 +69,16 @@ export function PaymentGatewayScreen() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     setProcessing(true);
-    
+
     // Simulate payment processing
     setTimeout(() => {
       setProcessing(false);
       setSuccess(true);
-      
+
       toast.success('Payment successful!');
-      
+
       // Redirect after success
       setTimeout(() => {
         if (user?.role === 'parent') {
@@ -143,11 +143,10 @@ export function PaymentGatewayScreen() {
                 <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
                   <div className="grid grid-cols-1 gap-3">
                     <label
-                      className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                        paymentMethod === 'card'
+                      className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${paymentMethod === 'card'
                           ? 'border-primary bg-primary/5'
                           : 'border-border hover:border-primary/50'
-                      }`}
+                        }`}
                     >
                       <RadioGroupItem value="card" id="card" />
                       <CreditCard className="w-5 h-5 text-primary" />
@@ -155,11 +154,10 @@ export function PaymentGatewayScreen() {
                     </label>
 
                     <label
-                      className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                        paymentMethod === 'bank'
+                      className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${paymentMethod === 'bank'
                           ? 'border-primary bg-primary/5'
                           : 'border-border hover:border-primary/50'
-                      }`}
+                        }`}
                     >
                       <RadioGroupItem value="bank" id="bank" />
                       <Building2 className="w-5 h-5 text-primary" />
@@ -167,11 +165,10 @@ export function PaymentGatewayScreen() {
                     </label>
 
                     <label
-                      className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                        paymentMethod === 'wallet'
+                      className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${paymentMethod === 'wallet'
                           ? 'border-primary bg-primary/5'
                           : 'border-border hover:border-primary/50'
-                      }`}
+                        }`}
                     >
                       <RadioGroupItem value="wallet" id="wallet" />
                       <Wallet className="w-5 h-5 text-primary" />

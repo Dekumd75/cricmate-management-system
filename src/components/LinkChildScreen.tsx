@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useApp } from './AppContext';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Link2, ArrowLeft, X, UserPlus } from 'lucide-react';
 
 export function LinkChildScreen() {
@@ -19,9 +19,9 @@ export function LinkChildScreen() {
 
   const handleLinkProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const player = players.find(p => p.inviteCode === inviteCode);
-    
+
     if (player) {
       // Check if already linked
       if (linkedPlayerIds.includes(player.id)) {
@@ -38,9 +38,9 @@ export function LinkChildScreen() {
           linkedPlayerId: updatedLinkedPlayerIds[0] // Keep first child as primary for backward compatibility
         });
       }
-      
+
       toast.success(`Successfully linked ${player.name}!`);
-      
+
       // Navigate back to dashboard to see the linked profile
       setTimeout(() => {
         navigate('/parent/dashboard');
@@ -77,7 +77,7 @@ export function LinkChildScreen() {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
         </Button>
-        
+
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center mb-4">
             <Link2 className="w-8 h-8 text-primary-foreground" />

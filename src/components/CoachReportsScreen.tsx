@@ -3,17 +3,17 @@ import { CoachSidebar } from './CoachSidebar';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { useApp } from './AppContext';
-import { 
-  FileText, 
-  Download, 
-  Users, 
-  TrendingUp, 
+import {
+  FileText,
+  Download,
+  Users,
+  TrendingUp,
   Calendar,
   Award,
   Target,
   BarChart3
 } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface ReportCard {
   id: string;
@@ -107,20 +107,20 @@ export function CoachReportsScreen() {
       });
       return csv;
     }
-    
+
     // Text format for PDF
     let content = 'PLAYER PERFORMANCE REPORT\n';
-    content += '=' .repeat(80) + '\n\n';
+    content += '='.repeat(80) + '\n\n';
     content += `Report Generated: ${new Date().toLocaleString()}\n`;
     content += `Total Players: ${players.length}\n\n`;
-    
+
     players.forEach((player, index) => {
       content += `${index + 1}. ${player.name}\n`;
       content += `   Age: ${player.age} | Role: ${player.role}\n`;
       content += `   Matches: ${player.stats.matches} | Runs: ${player.stats.runs} | Wickets: ${player.stats.wickets}\n`;
       content += `   Average: ${player.stats.average} | Strike Rate: ${player.stats.strikeRate}\n\n`;
     });
-    
+
     return content;
   };
 
@@ -137,23 +137,23 @@ export function CoachReportsScreen() {
       });
       return csv;
     }
-    
+
     let content = 'ATTENDANCE SUMMARY REPORT\n';
-    content += '=' .repeat(80) + '\n\n';
+    content += '='.repeat(80) + '\n\n';
     content += `Report Generated: ${new Date().toLocaleString()}\n`;
     content += `Total Players: ${players.length}\n\n`;
-    
+
     players.forEach((player, index) => {
       const playerAttendance = attendance.filter(r => r.playerId === player.id);
       const total = playerAttendance.length;
       const present = playerAttendance.filter(r => r.status === 'present').length;
       const percentage = total > 0 ? ((present / total) * 100).toFixed(1) : '0';
-      
+
       content += `${index + 1}. ${player.name}\n`;
       content += `   Total Sessions: ${total} | Present: ${present}\n`;
       content += `   Attendance Rate: ${percentage}%\n\n`;
     });
-    
+
     return content;
   };
 
@@ -163,7 +163,7 @@ export function CoachReportsScreen() {
     const totalMatches = players.reduce((sum, p) => sum + p.stats.matches, 0);
     const avgRuns = (totalRuns / players.length).toFixed(2);
     const avgWickets = (totalWickets / players.length).toFixed(2);
-    
+
     if (format === 'Excel') {
       let csv = 'Metric,Value\n';
       csv += `Total Players,${players.length}\n`;
@@ -174,59 +174,58 @@ export function CoachReportsScreen() {
       csv += `Average Wickets per Player,${avgWickets}\n`;
       return csv;
     }
-    
+
     let content = 'TEAM STATISTICS REPORT\n';
-    content += '=' .repeat(80) + '\n\n';
+    content += '='.repeat(80) + '\n\n';
     content += `Report Generated: ${new Date().toLocaleString()}\n\n`;
     content += 'OVERALL TEAM METRICS\n';
-    content += '-' .repeat(40) + '\n';
+    content += '-'.repeat(40) + '\n';
     content += `Total Players: ${players.length}\n`;
     content += `Total Runs Scored: ${totalRuns}\n`;
     content += `Total Wickets Taken: ${totalWickets}\n`;
     content += `Total Matches Played: ${totalMatches}\n`;
     content += `Average Runs per Player: ${avgRuns}\n`;
     content += `Average Wickets per Player: ${avgWickets}\n\n`;
-    
+
     content += 'TOP PERFORMERS\n';
-    content += '-' .repeat(40) + '\n';
+    content += '-'.repeat(40) + '\n';
     const topScorer = [...players].sort((a, b) => b.stats.runs - a.stats.runs)[0];
     const topBowler = [...players].sort((a, b) => b.stats.wickets - a.stats.wickets)[0];
     content += `Top Run Scorer: ${topScorer?.name} (${topScorer?.stats.runs} runs)\n`;
     content += `Top Wicket Taker: ${topBowler?.name} (${topBowler?.stats.wickets} wickets)\n`;
-    
+
     return content;
   };
 
   const generateIndividualPlayerReport = (format: string) => {
     let content = 'INDIVIDUAL PLAYER REPORTS\n';
-    content += '=' .repeat(80) + '\n\n';
+    content += '='.repeat(80) + '\n\n';
     content += `Report Generated: ${new Date().toLocaleString()}\n\n`;
-    
+
     players.forEach((player, index) => {
       content += `PLAYER ${index + 1}: ${player.name.toUpperCase()}\n`;
-      content += '-' .repeat(80) + '\n';
+      content += '-'.repeat(80) + '\n';
       content += `Age: ${player.age}\n`;
-      content += `Role: ${player.role}\n`;
-      content += `Contact: ${player.contact}\n\n`;
-      
+      content += `Role: ${player.role}\n\n`;
+
       content += 'PERFORMANCE STATISTICS\n';
       content += `  Matches Played: ${player.stats.matches}\n`;
       content += `  Total Runs: ${player.stats.runs}\n`;
       content += `  Total Wickets: ${player.stats.wickets}\n`;
       content += `  Batting Average: ${player.stats.average}\n`;
       content += `  Strike Rate: ${player.stats.strikeRate}\n\n`;
-      
+
       const playerAttendance = attendance.filter(r => r.playerId === player.id);
-      const attendanceRate = playerAttendance.length > 0 
+      const attendanceRate = playerAttendance.length > 0
         ? ((playerAttendance.filter(r => r.status === 'present').length / playerAttendance.length) * 100).toFixed(1)
         : '0';
-      
+
       content += 'ATTENDANCE\n';
       content += `  Attendance Rate: ${attendanceRate}%\n`;
       content += `  Total Sessions: ${playerAttendance.length}\n\n`;
-      content += '=' .repeat(80) + '\n\n';
+      content += '='.repeat(80) + '\n\n';
     });
-    
+
     return content;
   };
 
@@ -235,47 +234,47 @@ export function CoachReportsScreen() {
       .filter(p => p.role === 'Batsman')
       .sort((a, b) => b.stats.runs - a.stats.runs)
       .slice(0, 5);
-    
+
     const bowlers = [...players]
       .filter(p => p.role === 'Bowler')
       .sort((a, b) => b.stats.wickets - a.stats.wickets)
       .slice(0, 4);
-    
+
     const allRounders = [...players]
       .filter(p => p.role === 'All-rounder')
       .sort((a, b) => (b.stats.runs + b.stats.wickets * 20) - (a.stats.runs + a.stats.wickets * 20))
       .slice(0, 2);
-    
+
     let content = 'BEST XI ANALYSIS REPORT\n';
-    content += '=' .repeat(80) + '\n\n';
+    content += '='.repeat(80) + '\n\n';
     content += `Report Generated: ${new Date().toLocaleString()}\n\n`;
-    
+
     content += 'RECOMMENDED PLAYING XI\n';
-    content += '-' .repeat(40) + '\n\n';
-    
+    content += '-'.repeat(40) + '\n\n';
+
     content += 'BATSMEN\n';
     batsmen.forEach((player, i) => {
       content += `${i + 1}. ${player.name} - ${player.stats.runs} runs, Avg: ${player.stats.average}\n`;
     });
-    
+
     content += '\nALL-ROUNDERS\n';
     allRounders.forEach((player, i) => {
       content += `${i + 1}. ${player.name} - ${player.stats.runs} runs, ${player.stats.wickets} wickets\n`;
     });
-    
+
     content += '\nBOWLERS\n';
     bowlers.forEach((player, i) => {
       content += `${i + 1}. ${player.name} - ${player.stats.wickets} wickets\n`;
     });
-    
+
     content += '\nSELECTION RATIONALE\n';
-    content += '-' .repeat(40) + '\n';
+    content += '-'.repeat(40) + '\n';
     content += 'Team selection based on recent performance statistics including:\n';
     content += '- Batting performance and consistency\n';
     content += '- Bowling effectiveness and wicket-taking ability\n';
     content += '- All-round contribution to team balance\n';
     content += '- Attendance and commitment levels\n';
-    
+
     return content;
   };
 
@@ -288,11 +287,11 @@ export function CoachReportsScreen() {
       });
       return csv;
     }
-    
+
     let content = 'TRAINING PROGRESS REPORT\n';
-    content += '=' .repeat(80) + '\n\n';
+    content += '='.repeat(80) + '\n\n';
     content += `Report Generated: ${new Date().toLocaleString()}\n\n`;
-    
+
     players.forEach((player, index) => {
       const rating = calculateProgressRating(player);
       content += `${index + 1}. ${player.name}\n`;
@@ -301,7 +300,7 @@ export function CoachReportsScreen() {
       content += `   Current Stats: ${player.stats.runs} runs, ${player.stats.wickets} wickets\n`;
       content += `   Recommendation: ${getTrainingRecommendation(player)}\n\n`;
     });
-    
+
     return content;
   };
 
@@ -323,12 +322,12 @@ export function CoachReportsScreen() {
 
   const handleDownload = (reportId: string, format: string, title: string) => {
     setDownloadingReport(`${reportId}-${format}`);
-    
+
     setTimeout(() => {
       try {
         const content = generateReportData(reportId, format);
-        const blob = new Blob([content], { 
-          type: format === 'Excel' ? 'text/csv' : 'text/plain' 
+        const blob = new Blob([content], {
+          type: format === 'Excel' ? 'text/csv' : 'text/plain'
         });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -338,7 +337,7 @@ export function CoachReportsScreen() {
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-        
+
         toast.success(`${title} downloaded successfully!`);
       } catch (error) {
         toast.error('Failed to download report. Please try again.');
@@ -389,8 +388,8 @@ export function CoachReportsScreen() {
                         disabled={downloadingReport === `${report.id}-${format}`}
                       >
                         <Download className="w-4 h-4 mr-2" />
-                        {downloadingReport === `${report.id}-${format}` 
-                          ? 'Downloading...' 
+                        {downloadingReport === `${report.id}-${format}`
+                          ? 'Downloading...'
                           : `Download ${format}`}
                       </Button>
                     ))}

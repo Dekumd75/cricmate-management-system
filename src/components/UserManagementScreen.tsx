@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
 import { useApp } from './AppContext';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Search, UserPlus, Mail, Calendar } from 'lucide-react';
 
 export function UserManagementScreen() {
@@ -150,7 +150,7 @@ export function UserManagementScreen() {
                       {pendingParents.length} pending approval{pendingParents.length !== 1 ? 's' : ''}
                     </div>
                   </div>
-                  
+
                   {pendingParents.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full">

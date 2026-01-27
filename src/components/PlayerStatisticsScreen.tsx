@@ -7,7 +7,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useApp } from './AppContext';
 import { Plus, Search, ChevronRight, CheckCircle, Save } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Checkbox } from './ui/checkbox';
 
 type MatchStatus = 'draft' | 'squad-selected' | 'completed';
@@ -43,7 +43,7 @@ export function PlayerStatisticsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [currentStatPlayerId, setCurrentStatPlayerId] = useState<string | null>(null);
-  
+
   // Match form state
   const [opponent, setOpponent] = useState('');
   const [matchDate, setMatchDate] = useState('');
@@ -78,12 +78,12 @@ export function PlayerStatisticsScreen() {
     setMatches([...matches, newMatch]);
     setCurrentMatch(newMatch);
     setView('select-squad');
-    
+
     // Reset form
     setOpponent('');
     setMatchDate('');
     setVenue('');
-    
+
     toast.success('Match created successfully!');
   };
 
@@ -176,7 +176,7 @@ export function PlayerStatisticsScreen() {
   const updatePlayerOverallStats = (playerId: string, currentMatchStats: PlayerMatchStats[], currentMatchId: string) => {
     // Get all stats for this player across all matches
     const allPlayerMatchStats: PlayerMatchStats[] = [];
-    
+
     // Collect stats from all completed matches
     Object.keys(matchStats).forEach(matchId => {
       if (matchId === currentMatchId) {
@@ -194,16 +194,16 @@ export function PlayerStatisticsScreen() {
     const totalRuns = allPlayerMatchStats.reduce((sum, s) => sum + s.runs, 0);
     const totalWickets = allPlayerMatchStats.reduce((sum, s) => sum + s.wickets, 0);
     const timesOut = allPlayerMatchStats.filter(s => s.isOut).length;
-    
+
     // Calculate average (runs / times out, or runs if never out)
     const battingAverage = timesOut > 0 ? parseFloat((totalRuns / timesOut).toFixed(1)) : totalRuns;
-    
+
     // Calculate strike rate (runs per 100 balls - we'll use a simplified version)
     const totalFours = allPlayerMatchStats.reduce((sum, s) => sum + s.fours, 0);
     const totalSixes = allPlayerMatchStats.reduce((sum, s) => sum + s.sixes, 0);
     const estimatedBalls = (totalFours * 1) + (totalSixes * 1) + ((totalRuns - (totalFours * 4) - (totalSixes * 6)) * 0.7);
     const strikeRate = estimatedBalls > 0 ? parseFloat(((totalRuns / estimatedBalls) * 100).toFixed(1)) : 0;
-    
+
     // Calculate economy (runs conceded per over)
     const totalOvers = allPlayerMatchStats.reduce((sum, s) => sum + s.oversBowled, 0);
     const totalRunsConceded = allPlayerMatchStats.reduce((sum, s) => sum + s.runsConceded, 0);
@@ -239,7 +239,7 @@ export function PlayerStatisticsScreen() {
   return (
     <div className="flex min-h-screen bg-background">
       <CoachSidebar />
-      
+
       <div className="flex-1">
         <div className="border-b border-border bg-card">
           <div className="px-8 py-6">
@@ -330,7 +330,7 @@ export function PlayerStatisticsScreen() {
 
               <Card className="p-6">
                 <h2 className="mb-6">Create New Match</h2>
-                
+
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="opponent">Opponent Team</Label>
@@ -432,11 +432,10 @@ export function PlayerStatisticsScreen() {
                     return (
                       <div
                         key={player.id}
-                        className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors ${
-                          isSelected
+                        className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors ${isSelected
                             ? 'border-primary bg-primary/5'
                             : 'border-border hover:bg-muted'
-                        }`}
+                          }`}
                         onClick={() => togglePlayerSelection(player.id)}
                       >
                         <Checkbox
@@ -516,15 +515,14 @@ export function PlayerStatisticsScreen() {
                       if (!player) return null;
                       const hasStats = matchStats[currentMatch.id]?.some(s => s.playerId === player.id);
                       const isActive = currentStatPlayerId === player.id;
-                      
+
                       return (
                         <div
                           key={player.id}
-                          className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                            isActive
+                          className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${isActive
                               ? 'border-primary bg-primary/5'
                               : 'border-border hover:bg-muted'
-                          }`}
+                            }`}
                           onClick={() => {
                             setCurrentStatPlayerId(player.id);
                             // Load existing stats if available
@@ -567,7 +565,7 @@ export function PlayerStatisticsScreen() {
                       <h3 className="mb-6">
                         Enter Stats for {players.find(p => p.id === currentStatPlayerId)?.name}
                       </h3>
-                      
+
                       <div className="space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">

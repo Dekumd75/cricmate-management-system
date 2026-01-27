@@ -16,7 +16,7 @@ import {
 import { useApp } from './AppContext';
 import { ArrowLeft, CheckCircle, XCircle, Clock, Copy, Eye, DollarSign } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function PlayerProfile() {
   const navigate = useNavigate();
@@ -26,12 +26,12 @@ export function PlayerProfile() {
   const [showInviteCodeDialog, setShowInviteCodeDialog] = useState(false);
   const [manualPaymentAmount, setManualPaymentAmount] = useState('');
   const [manualPaymentDate, setManualPaymentDate] = useState('');
-  
+
   // Get player ID from URL params or use linked player for parents
   const playerIdFromUrl = searchParams.get('id');
   const playerId = playerIdFromUrl || user?.linkedPlayerId;
   const player = players.find(p => p.id === playerId);
-  
+
   if (!player) {
     return <div>Player not found</div>;
   }
@@ -130,7 +130,7 @@ export function PlayerProfile() {
               <p className="text-muted-foreground">
                 Age {player.age} • {player.role}
               </p>
-              
+
               {/* Show invite code button only to coaches */}
               {user?.role === 'coach' && player.inviteCode && (
                 <div className="mt-3">
@@ -381,7 +381,7 @@ export function PlayerProfile() {
               Share this code with the player or their parent to link their account.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="py-6">
             <div className="bg-muted rounded-lg p-6 text-center">
               <p className="text-sm text-muted-foreground mb-2">Invite Code</p>
@@ -400,7 +400,7 @@ export function PlayerProfile() {
           </div>
 
           <div className="flex justify-end">
-            <Button 
+            <Button
               onClick={() => setShowInviteCodeDialog(false)}
               className="bg-primary hover:bg-primary/90"
             >

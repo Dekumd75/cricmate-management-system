@@ -111,6 +111,7 @@ export function PlayerManagement() {
         open={showRegistrationDialog}
         onOpenChange={setShowRegistrationDialog}
         onSuccess={handlePlayerRegistered}
+        userRole={user?.role as 'admin' | 'coach'}
       />
     </div>
   );

@@ -4,23 +4,66 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Users, CalendarCheck, Siren, UserPlus, Trophy, ChevronRight } from 'lucide-react';
 import { useApp } from './AppContext';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
+import coachService from '../services/coachService';
+import { useEffect, useState } from 'react';
+
+interface PendingParent {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  createdAt: string;
+}
 
 export function CoachDashboard() {
   const navigate = useNavigate();
-  const { players, payments, pendingParents, setPendingParents, matches } = useApp();
-  
+  const { players, payments, matches } = useApp();
+  const [pendingParents, setPendingParents] = useState<PendingParent[]>([]);
+  const [loadingParents, setLoadingParents] = useState(true);
+
   const overduePayments = payments.filter(p => p.status === 'overdue');
   const todayAttendance = '18/25'; // Mock data
 
-  const handleApproveParent = (parentId: string, parentName: string) => {
-    setPendingParents(pendingParents.filter(p => p.id !== parentId));
-    toast.success(`${parentName} has been approved!`);
+  // Fetch pending parents
+  useEffect(() => {
+    const fetchPendingParents = async () => {
+      try {
+        const response = await coachService.getPendingParents();
+        setPendingParents(response.pendingParents || []);
+      } catch (error) {
+        console.error('Failed to fetch pending parents:', error);
+        toast.error('Failed to load pending parents');
+      } finally {
+        setLoadingParents(false);
+      }
+    };
+
+    fetchPendingParents();
+  }, []);
+
+  const handleApproveParent = async (parentId: number, parentName: string) => {
+    try {
+      await coachService.approveParent(parentId);
+      setPendingParents(pendingParents.filter(p => p.id !== parentId));
+      toast.success(`${parentName} has been approved!`, {
+        description: 'An email notification has been sent to the parent.'
+      });
+    } catch (error) {
+      console.error('Failed to approve parent:', error);
+      toast.error('Failed to approve parent. Please try again.');
+    }
   };
 
-  const handleRejectParent = (parentId: string, parentName: string) => {
-    setPendingParents(pendingParents.filter(p => p.id !== parentId));
-    toast.error(`${parentName}'s registration has been rejected.`);
+  const handleRejectParent = async (parentId: number, parentName: string) => {
+    try {
+      await coachService.rejectParent(parentId);
+      setPendingParents(pendingParents.filter(p => p.id !== parentId));
+      toast.error(`${parentName}'s registration has been rejected.`);
+    } catch (error) {
+      console.error('Failed to reject parent:', error);
+      toast.error('Failed to reject parent. Please try again.');
+    }
   };
 
   return (
@@ -100,7 +143,7 @@ export function CoachDashboard() {
                       <tr key={parent.id} className="border-b border-border">
                         <td className="py-4 px-4">{parent.name}</td>
                         <td className="py-4 px-4">{parent.email}</td>
-                        <td className="py-4 px-4">{new Date(parent.dateRegistered).toLocaleDateString()}</td>
+                        <td className="py-4 px-4">{new Date(parent.createdAt).toLocaleDateString()}</td>
                         <td className="py-4 px-4">
                           <div className="flex gap-2">
                             <Button

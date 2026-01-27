@@ -38,4 +38,12 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
-module.exports = { authMiddleware, requireAdmin, JWT_SECRET };
+// Coach-only middleware (also allows admin)
+const requireCoach = (req, res, next) => {
+    if (!req.user || (req.user.role !== 'coach' && req.user.role !== 'admin')) {
+        return res.status(403).json({ message: 'Access denied. Coach only.' });
+    }
+    next();
+};
+
+module.exports = { authMiddleware, requireAdmin, requireCoach, JWT_SECRET };

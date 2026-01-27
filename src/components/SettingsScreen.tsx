@@ -10,12 +10,12 @@ import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { useApp } from './AppContext';
 import { Camera, Lock, Mail, Phone, Moon, Sun } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import authService from '../services/authService';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 export function SettingsScreen() {
-  const { user, theme, setTheme } = useApp();
+  const { user, theme, setTheme, setUser } = useApp();
   const [profilePhoto, setProfilePhoto] = useState(user?.photo || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
@@ -23,6 +23,7 @@ export function SettingsScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isUpdatingContact, setIsUpdatingContact] = useState(false);
 
   const getSidebar = () => {
     switch (user?.role) {
@@ -71,12 +72,12 @@ export function SettingsScreen() {
 
     try {
       await authService.changePassword(currentPassword, newPassword);
-      
+
       // Clear form
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      
+
       toast.success('Password changed successfully!');
     } catch (error: any) {
       console.error('Change password error:', error);
@@ -87,14 +88,41 @@ export function SettingsScreen() {
     }
   };
 
-  const handleContactUpdate = () => {
+  const handleContactUpdate = async () => {
     if (!email) {
       toast.error('Email is required', { duration: 5000 });
       return;
     }
 
-    // Mock contact update
-    toast.success('Contact details updated successfully!');
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error('Please enter a valid email address', { duration: 5000 });
+      return;
+    }
+
+    setIsUpdatingContact(true);
+
+    try {
+      const response = await authService.updateContactDetails(email, phone);
+
+      // Update the global user state in AppContext
+      if (response.user && user) {
+        setUser({
+          ...user,
+          email: response.user.email,
+          phone: response.user.phone
+        });
+      }
+
+      toast.success('Contact details updated successfully!');
+    } catch (error: any) {
+      console.error('Update contact error:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to update contact details';
+      toast.error(errorMessage, { duration: 5000 });
+    } finally {
+      setIsUpdatingContact(false);
+    }
   };
 
   const toggleTheme = () => {
@@ -212,9 +240,10 @@ export function SettingsScreen() {
 
                 <Button
                   onClick={handleContactUpdate}
+                  disabled={isUpdatingContact}
                   className="bg-primary hover:bg-primary/90"
                 >
-                  Update Contact Details
+                  {isUpdatingContact ? "Updating..." : "Update Contact Details"}
                 </Button>
               </div>
             </Card>

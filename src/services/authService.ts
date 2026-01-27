@@ -113,6 +113,23 @@ class AuthService {
 
 
     /**
+     * Update contact details
+     */
+    async updateContactDetails(email: string, phone: string): Promise<{ message: string; user: any }> {
+        const response = await api.put('/auth/update-contact', {
+            email,
+            phone
+        });
+
+        // Update stored user with new contact details
+        if (response.data.user) {
+            localStorage.setItem('user', JSON.stringify(response.data.user));
+        }
+
+        return response.data;
+    }
+
+    /**
      * Get stored token
      */
     getToken(): string | null {

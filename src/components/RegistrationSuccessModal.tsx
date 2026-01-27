@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from './ui/dialog';
 import { Button } from './ui/button';
 import { CheckCircle, Copy } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface Props {
   isOpen: boolean;
@@ -22,7 +22,7 @@ export function RegistrationSuccessModal({ isOpen, onClose, inviteCode }: Props)
           <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
             <CheckCircle className="w-10 h-10 text-success" />
           </div>
-          
+
           <h2 className="mb-2">Player Profile Created!</h2>
           <p className="text-muted-foreground mb-6">
             Share this invite code with the parent to link their account

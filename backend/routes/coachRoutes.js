@@ -1,6 +1,6 @@
 const express = require('express');
 const { User, AuditLog, PlayerProfile, InviteCode } = require('../models');
-const { authMiddleware, requireAdmin } = require('../middleware/authMiddleware');
+const { authMiddleware, requireCoach } = require('../middleware/authMiddleware');
 const { sendParentApprovalEmail, sendParentRejectionEmail } = require('../services/emailService');
 
 const router = express.Router();
@@ -16,69 +16,16 @@ const generateInviteCode = () => {
     return prefix + code;
 };
 
-// @route   POST /api/admin/coaches
-// @desc    Create new coach
-// @access  Admin only
-router.post('/coaches', authMiddleware, requireAdmin, async (req, res) => {
+// @route   POST /api/coach/players
+// @desc    Create new player (Coach access)
+// @access  Coach only
+router.post('/players', authMiddleware, requireCoach, async (req, res) => {
     try {
-        const { name, email, password, phone } = req.body;
+        const { name, email, password, phone, dob, battingStyle, bowlingStyle, playerRole, generateInviteCode: shouldGenerateCode } = req.body;
 
         // Validate input
-        if (!name || !email || !password) {
-            return res.status(400).json({ message: 'Please provide name, email, and password' });
-        }
-
-        // Check if user already exists
-        const existingUser = await User.findOne({ where: { email } });
-        if (existingUser) {
-            return res.status(400).json({ message: 'User with this email already exists' });
-        }
-
-        // Create coach user
-        const coach = await User.create({
-            name,
-            email,
-            password,
-            phone,
-            role: 'coach',
-            accountStatus: 'active'
-        });
-
-        // Log in audit log
-        await AuditLog.create({
-            userID: req.user.id,
-            action: 'COACH_CREATED',
-            entity: 'User',
-            entityID: coach.id,
-            timestamp: new Date()
-        });
-
-        res.status(201).json({
-            message: 'Coach created successfully',
-            coach: {
-                id: coach.id,
-                name: coach.name,
-                email: coach.email,
-                phone: coach.phone,
-                role: coach.role
-            }
-        });
-    } catch (error) {
-        console.error('Create coach error:', error);
-        res.status(500).json({ message: 'Server error while creating coach' });
-    }
-});
-
-// @route   POST /api/admin/players
-// @desc    Create new player
-// @access  Admin only
-router.post('/players', authMiddleware, requireAdmin, async (req, res) => {
-    try {
-        const { name, email, password, phone, age, battingStyle, bowlingStyle, playerRole, generateInviteCode: shouldGenerateCode } = req.body;
-
-        // Validate input
-        if (!name || !email || !password || !age) {
-            return res.status(400).json({ message: 'Please provide name, email, password, and age' });
+        if (!name || !email || !password || !dob) {
+            return res.status(400).json({ message: 'Please provide name, email, password, and date of birth' });
         }
 
         // Check if user already exists
@@ -97,12 +44,7 @@ router.post('/players', authMiddleware, requireAdmin, async (req, res) => {
             accountStatus: 'active'
         });
 
-        // Calculate DOB from age (approximate)
-        const currentYear = new Date().getFullYear();
-        const birthYear = currentYear - parseInt(age);
-        const dob = `${birthYear}-01-01`;
-
-        // Create player profile
+        // Create player profile with the DOB from request
         await PlayerProfile.create({
             playerUserID: player.id,
             dob: dob,
@@ -126,15 +68,15 @@ router.post('/players', authMiddleware, requireAdmin, async (req, res) => {
         }
 
         // Log in audit log
-        console.log('Creating audit log entry for player:', {
+        console.log('Creating audit log entry for player (by coach):', {
             userID: req.user.id,
-            action: 'PLAYER_CREATED',
+            action: 'PLAYER_CREATED_BY_COACH',
             entityID: player.id
         });
 
         const auditEntry = await AuditLog.create({
             userID: req.user.id,
-            action: 'PLAYER_CREATED',
+            action: 'PLAYER_CREATED_BY_COACH',
             entity: 'User',
             entityID: player.id,
             timestamp: new Date()
@@ -150,7 +92,7 @@ router.post('/players', authMiddleware, requireAdmin, async (req, res) => {
                 email: player.email,
                 phone: player.phone,
                 role: player.role,
-                age: age
+                dob: dob
             },
             inviteCode: inviteCode
         });
@@ -160,60 +102,10 @@ router.post('/players', authMiddleware, requireAdmin, async (req, res) => {
     }
 });
 
-// @route   GET /api/admin/users
-// @desc    Get all users by role
-// @access  Admin only
-router.get('/users', authMiddleware, requireAdmin, async (req, res) => {
-    try {
-        const { role } = req.query;
-
-        const whereClause = role ? { role } : {};
-
-        const users = await User.findAll({
-            where: whereClause,
-            attributes: { exclude: ['password'] },
-            order: [['id', 'DESC']]
-        });
-
-        res.json({ users });
-    } catch (error) {
-        console.error('Get users error:', error);
-        res.status(500).json({ message: 'Server error while fetching users' });
-    }
-});
-
-// @route   GET /api/admin/audit-logs
-// @desc    Get all audit logs
-// @access  Admin only
-router.get('/audit-logs', authMiddleware, requireAdmin, async (req, res) => {
-    try {
-        const auditLogs = await AuditLog.findAll({
-            include: [{
-                model: User,
-                as: 'user',
-                attributes: ['id', 'name', 'email', 'role'],
-                required: false // Make the join optional (LEFT JOIN instead of INNER JOIN)
-            }],
-            order: [['timestamp', 'DESC']],
-            limit: 100 // Limit to most recent 100 logs
-        });
-
-        console.log(`Fetched ${auditLogs.length} audit logs`);
-        res.json({ auditLogs });
-    } catch (error) {
-        console.error('Get audit logs error:', error);
-        console.error('Error details:', error.message);
-        if (error.parent) {
-            console.error('SQL Error:', error.parent.sql);
-        }
-        res.status(500).json({ message: 'Server error while fetching audit logs', error: error.message });
-    }
-});
-
-// @route   GET /api/admin/pending-parents
+// @route   GET /api/coach/pending-parents
 // @desc    Get all pending parent registrations
-// @access  Admin only
-router.get('/pending-parents', authMiddleware, requireAdmin, async (req, res) => {
+// @access  Coach only
+router.get('/pending-parents', authMiddleware, requireCoach, async (req, res) => {
     try {
         const pendingParents = await User.findAll({
             where: {
@@ -231,10 +123,10 @@ router.get('/pending-parents', authMiddleware, requireAdmin, async (req, res) =>
     }
 });
 
-// @route   POST /api/admin/approve-parent/:id
+// @route   POST /api/coach/approve-parent/:id
 // @desc    Approve a pending parent registration
-// @access  Admin only
-router.post('/approve-parent/:id', authMiddleware, requireAdmin, async (req, res) => {
+// @access  Coach only
+router.post('/approve-parent/:id', authMiddleware, requireCoach, async (req, res) => {
     try {
         const parentId = req.params.id;
 
@@ -261,19 +153,18 @@ router.post('/approve-parent/:id', authMiddleware, requireAdmin, async (req, res
             console.log('Approval email sent to:', parent.email);
         } catch (emailError) {
             console.error('Failed to send approval email:', emailError);
-            // Don't fail the approval if email fails
         }
 
         // Log approval in audit log
         await AuditLog.create({
             userID: req.user.id,
-            action: 'PARENT_APPROVED',
+            action: 'PARENT_APPROVED_BY_COACH',
             entity: 'User',
             entityID: parent.id,
             timestamp: new Date()
         });
 
-        console.log(`Parent approved: ${parent.name} (${parent.email}) by admin ${req.user.name}`);
+        console.log(`Parent approved: ${parent.name} (${parent.email}) by coach ${req.user.name}`);
 
         res.json({
             message: 'Parent approved successfully',
@@ -290,10 +181,10 @@ router.post('/approve-parent/:id', authMiddleware, requireAdmin, async (req, res
     }
 });
 
-// @route   POST /api/admin/reject-parent/:id
+// @route   POST /api/coach/reject-parent/:id
 // @desc    Reject a pending parent registration
-// @access  Admin only
-router.post('/reject-parent/:id', authMiddleware, requireAdmin, async (req, res) => {
+// @access  Coach only
+router.post('/reject-parent/:id', authMiddleware, requireCoach, async (req, res) => {
     try {
         const parentId = req.params.id;
 
@@ -316,19 +207,18 @@ router.post('/reject-parent/:id', authMiddleware, requireAdmin, async (req, res)
             console.log('Rejection email sent to:', parent.email);
         } catch (emailError) {
             console.error('Failed to send rejection email:', emailError);
-            // Don't fail the rejection if email fails
         }
 
         // Log rejection in audit log
         await AuditLog.create({
             userID: req.user.id,
-            action: 'PARENT_REJECTED',
+            action: 'PARENT_REJECTED_BY_COACH',
             entity: 'User',
             entityID: parent.id,
             timestamp: new Date()
         });
 
-        console.log(`Parent rejected: ${parent.name} (${parent.email}) by admin ${req.user.name}`);
+        console.log(`Parent rejected: ${parent.name} (${parent.email}) by coach ${req.user.name}`);
 
         res.json({
             message: 'Parent rejected successfully',
