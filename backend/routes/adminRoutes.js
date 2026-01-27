@@ -74,11 +74,11 @@ router.post('/coaches', authMiddleware, requireAdmin, async (req, res) => {
 // @access  Admin only
 router.post('/players', authMiddleware, requireAdmin, async (req, res) => {
     try {
-        const { name, email, password, phone, age, battingStyle, bowlingStyle, playerRole, generateInviteCode: shouldGenerateCode } = req.body;
+        const { name, email, password, phone, dob, battingStyle, bowlingStyle, playerRole, generateInviteCode: shouldGenerateCode } = req.body;
 
         // Validate input
-        if (!name || !email || !password || !age) {
-            return res.status(400).json({ message: 'Please provide name, email, password, and age' });
+        if (!name || !email || !password || !dob) {
+            return res.status(400).json({ message: 'Please provide name, email, password, and date of birth' });
         }
 
         // Check if user already exists
@@ -97,11 +97,6 @@ router.post('/players', authMiddleware, requireAdmin, async (req, res) => {
             accountStatus: 'active'
         });
 
-        // Calculate DOB from age (approximate)
-        const currentYear = new Date().getFullYear();
-        const birthYear = currentYear - parseInt(age);
-        const dob = `${birthYear}-01-01`;
-
         // Create player profile
         await PlayerProfile.create({
             playerUserID: player.id,
@@ -111,6 +106,9 @@ router.post('/players', authMiddleware, requireAdmin, async (req, res) => {
             playerRole: playerRole || null,
             photoURL: null
         });
+
+        // Calculate age for response
+        const calculatedAge = dob ? new Date().getFullYear() - new Date(dob).getFullYear() : 0;
 
         // Generate invite code if requested
         let inviteCode = null;
@@ -150,13 +148,88 @@ router.post('/players', authMiddleware, requireAdmin, async (req, res) => {
                 email: player.email,
                 phone: player.phone,
                 role: player.role,
-                age: age
+                age: calculatedAge,
+                dob: dob
             },
             inviteCode: inviteCode
         });
     } catch (error) {
         console.error('Create player error:', error);
         res.status(500).json({ message: 'Server error while creating player' });
+    }
+});
+
+// @route   GET /api/admin/coaches
+// @desc    Get all coaches
+// @access  Admin only
+router.get('/coaches', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const coaches = await User.findAll({
+            where: { role: 'coach' },
+            attributes: { exclude: ['password'] },
+            order: [['id', 'ASC']]
+        });
+
+        // Format coaches data
+        const formattedCoaches = coaches.map(coach => ({
+            id: coach.id,
+            name: coach.name,
+            email: coach.email,
+            phone: coach.phone,
+            dateJoined: coach.createdAt || new Date().toISOString().split('T')[0]
+        }));
+
+        res.json({ coaches: formattedCoaches });
+    } catch (error) {
+        console.error('Get coaches error:', error);
+        res.status(500).json({ message: 'Server error while fetching coaches' });
+    }
+});
+
+// @route   GET /api/admin/players
+// @desc    Get all players with their profiles
+// @access  Admin only
+router.get('/players', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const players = await User.findAll({
+            where: { role: 'player' },
+            attributes: { exclude: ['password'] },
+            include: [{
+                model: PlayerProfile,
+                as: 'playerProfile',
+                required: false
+            }],
+            order: [['id', 'DESC']]
+        });
+
+        // Format players data
+        const formattedPlayers = players.map(player => {
+            const profile = player.playerProfile;
+            const age = profile?.dob ? new Date().getFullYear() - new Date(profile.dob).getFullYear() : 0;
+
+            return {
+                id: player.id.toString(),
+                name: player.name,
+                age: age,
+                role: profile?.playerRole || 'Player',
+                photo: profile?.photoURL || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=200',
+                stats: {
+                    matches: 0,
+                    runs: 0,
+                    wickets: 0,
+                    average: 0,
+                    strikeRate: 0,
+                    economy: 0
+                },
+                inviteCode: 'FSCA-XXXX',
+                parentId: null
+            };
+        });
+
+        res.json({ players: formattedPlayers });
+    } catch (error) {
+        console.error('Get players error:', error);
+        res.status(500).json({ message: 'Server error while fetching players' });
     }
 });
 

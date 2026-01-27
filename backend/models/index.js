@@ -17,6 +17,30 @@ User.hasMany(AuditLog, {
     sourceKey: 'id'        // This is the Sequelize property name in User
 });
 
+// PlayerProfile associations
+User.hasOne(PlayerProfile, {
+    foreignKey: 'playerUserID',
+    sourceKey: 'id',
+    as: 'playerProfile'
+});
+PlayerProfile.belongsTo(User, {
+    foreignKey: 'playerUserID',
+    targetKey: 'id',
+    as: 'player'
+});
+
+// InviteCode associations
+User.hasMany(InviteCode, {
+    foreignKey: 'playerUserID',
+    sourceKey: 'id',
+    as: 'inviteCodes'
+});
+InviteCode.belongsTo(User, {
+    foreignKey: 'playerUserID',
+    targetKey: 'id',
+    as: 'player'
+});
+
 // Export all models
 module.exports = {
     User,

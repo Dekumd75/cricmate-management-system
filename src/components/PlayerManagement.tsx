@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CoachSidebar } from './CoachSidebar';
 import { AdminSidebar } from './AdminSidebar';
@@ -8,19 +8,48 @@ import { Input } from './ui/input';
 import { useApp } from './AppContext';
 import { Search, UserPlus } from 'lucide-react';
 import { PlayerRegistrationDialog } from './PlayerRegistrationDialog';
+import userService from '../services/userService';
+import { toast } from 'sonner';
 
 export function PlayerManagement() {
   const navigate = useNavigate();
-  const { players, setPlayers, user } = useApp();
+  const { user } = useApp();
+  const [players, setPlayers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
+
+  // Fetch players from API
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      try {
+        const fetchedPlayers = await userService.getPlayers(user?.role || 'coach');
+        setPlayers(fetchedPlayers);
+      } catch (error) {
+        console.error('Failed to fetch players:', error);
+        toast.error('Failed to load players');
+      }
+    };
+
+    if (user?.role) {
+      fetchPlayers();
+    }
+  }, [user?.role]);
 
   const filteredPlayers = players.filter(player =>
     player.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handlePlayerRegistered = (newPlayer: any) => {
-    setPlayers([...players, newPlayer]);
+  const handlePlayerRegistered = async (newPlayer: any) => {
+    // Refetch players to show the new player immediately
+    try {
+      const updatedPlayers = await userService.getPlayers(user?.role || 'coach');
+      setPlayers(updatedPlayers);
+      toast.success(`Player ${newPlayer.name} registered successfully!`);
+    } catch (error) {
+      console.error('Failed to refresh players list:', error);
+      // Still add the player locally if refetch fails
+      setPlayers([...players, newPlayer]);
+    }
   };
 
   const getSidebar = () => {

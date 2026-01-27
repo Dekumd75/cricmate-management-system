@@ -102,6 +102,53 @@ router.post('/players', authMiddleware, requireCoach, async (req, res) => {
     }
 });
 
+// @route   GET /api/coach/players
+// @desc    Get all players
+// @access  Coach only
+router.get('/players', authMiddleware, requireCoach, async (req, res) => {
+    try {
+        const players = await User.findAll({
+            where: { role: 'player' },
+            attributes: { exclude: ['password'] },
+            include: [{
+                model: PlayerProfile,
+                as: 'playerProfile',
+                required: false
+            }],
+            order: [['id', 'DESC']]
+        });
+
+        // Format players data
+        const formattedPlayers = players.map(player => {
+            const profile = player.playerProfile;
+            const age = profile?.dob ? new Date().getFullYear() - new Date(profile.dob).getFullYear() : 0;
+
+            return {
+                id: player.id.toString(),
+                name: player.name,
+                age: age,
+                role: profile?.playerRole || 'Player',
+                photo: profile?.photoURL || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=200',
+                stats: {
+                    matches: 0,
+                    runs: 0,
+                    wickets: 0,
+                    average: 0,
+                    strikeRate: 0,
+                    economy: 0
+                },
+                inviteCode: 'FSCA-XXXX',
+                parentId: null
+            };
+        });
+
+        res.json({ players: formattedPlayers });
+    } catch (error) {
+        console.error('Get players error:', error);
+        res.status(500).json({ message: 'Server error while fetching players' });
+    }
+});
+
 // @route   GET /api/coach/pending-parents
 // @desc    Get all pending parent registrations
 // @access  Coach only

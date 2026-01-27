@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import {
@@ -14,26 +13,60 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { useApp } from './AppContext';
-import { ArrowLeft, CheckCircle, XCircle, Clock, Copy, Eye, DollarSign } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, Copy, Eye } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
+import userService from '../services/userService';
 
 export function PlayerProfile() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, players, payments, setPayments } = useApp();
+  const { user, payments, setPayments } = useApp();
   const [activeTab, setActiveTab] = useState('overview');
   const [showInviteCodeDialog, setShowInviteCodeDialog] = useState(false);
   const [manualPaymentAmount, setManualPaymentAmount] = useState('');
   const [manualPaymentDate, setManualPaymentDate] = useState('');
+  const [player, setPlayer] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   // Get player ID from URL params or use linked player for parents
   const playerIdFromUrl = searchParams.get('id');
   const playerId = playerIdFromUrl || user?.linkedPlayerId;
-  const player = players.find(p => p.id === playerId);
+
+  useEffect(() => {
+    const fetchPlayerData = async () => {
+      if (!playerId) return;
+
+      setLoading(true);
+      try {
+        // For admin and coach, we can fetch from the players list
+        if (user?.role === 'admin' || user?.role === 'coach') {
+          const players = await userService.getPlayers(user.role);
+          const foundPlayer = players.find((p: any) => p.id === playerId);
+          if (foundPlayer) {
+            setPlayer(foundPlayer);
+          } else {
+            console.error('Player not found in list');
+          }
+        }
+        // Note: Parent handling would go here, relying on future endpoint
+      } catch (error) {
+        console.error('Failed to fetch player data:', error);
+        toast.error('Failed to load player profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlayerData();
+  }, [playerId, user?.role]);
+
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
+  }
 
   if (!player) {
-    return <div>Player not found</div>;
+    return <div className="flex min-h-screen items-center justify-center">Player not found</div>;
   }
 
   const copyInviteCode = () => {
@@ -64,7 +97,6 @@ export function PlayerProfile() {
     toast.success('Payment recorded successfully!');
   };
 
-  // Mock performance data
   const performanceData = [
     { match: 'Match 1', runs: 45 },
     { match: 'Match 2', runs: 32 },
@@ -81,7 +113,6 @@ export function PlayerProfile() {
     { match: 'vs Team D', score: 23 },
   ];
 
-  // Mock attendance data
   const attendanceData = [
     { date: '2025-10-15', status: 'present', checkIn: '15:00', checkOut: '18:00' },
     { date: '2025-10-12', status: 'present', checkIn: '15:00', checkOut: '18:00' },

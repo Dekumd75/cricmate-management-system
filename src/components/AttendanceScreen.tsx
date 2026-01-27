@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CoachSidebar } from './CoachSidebar';
 import { AdminSidebar } from './AdminSidebar';
 import { Card } from './ui/card';
@@ -6,13 +6,32 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useApp } from './AppContext';
 import { Search } from 'lucide-react';
+import userService from '../services/userService';
+import { toast } from 'sonner';
 
 type AttendanceStatus = 'none' | 'present' | 'absent' | 'early-leave';
 
 export function AttendanceScreen() {
-  const { players, user } = useApp();
+  const { user } = useApp();
+  const [players, setPlayers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
+
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      try {
+        const fetchedPlayers = await userService.getPlayers(user?.role || 'coach');
+        setPlayers(fetchedPlayers);
+      } catch (error) {
+        console.error('Failed to fetch players:', error);
+        toast.error('Failed to load players');
+      }
+    };
+
+    if (user?.role) {
+      fetchPlayers();
+    }
+  }, [user?.role]);
 
   const filteredPlayers = players.filter(player =>
     player.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -71,7 +90,7 @@ export function AttendanceScreen() {
             <div className="space-y-3">
               {filteredPlayers.map((player) => {
                 const status = attendance[player.id] || 'none';
-                
+
                 return (
                   <div
                     key={player.id}
@@ -106,7 +125,7 @@ export function AttendanceScreen() {
                           </Button>
                         </>
                       )}
-                      
+
                       {status === 'present' && (
                         <Button
                           onClick={() => markEarlyLeave(player.id)}
@@ -115,13 +134,13 @@ export function AttendanceScreen() {
                           Mark Early Leave
                         </Button>
                       )}
-                      
+
                       {status === 'early-leave' && (
                         <span className="px-4 py-2 bg-warning/20 text-warning rounded-lg">
                           Left Early
                         </span>
                       )}
-                      
+
                       {status === 'absent' && (
                         <span className="px-4 py-2 bg-destructive/20 text-destructive rounded-lg">
                           Absent

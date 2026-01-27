@@ -121,36 +121,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [players, setPlayers] = useState<Player[]>([
-    {
-      id: '1',
-      name: 'Ashan Silva',
-      age: 14,
-      role: 'Batsman',
-      photo: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=200',
-      stats: { matches: 45, runs: 1250, wickets: 5, average: 32.5, strikeRate: 125.5, economy: 8.2 },
-      inviteCode: 'FSCA-X87K',
-      parentId: 'parent1'
-    },
-    {
-      id: '2',
-      name: 'Kavindu Perera',
-      age: 15,
-      role: 'All-rounder',
-      photo: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=200',
-      stats: { matches: 52, runs: 980, wickets: 23, average: 28.3, strikeRate: 118.2, economy: 6.5 },
-      inviteCode: 'FSCA-Y92L',
-    },
-    {
-      id: '3',
-      name: 'Dineth Fernando',
-      age: 13,
-      role: 'Bowler',
-      photo: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=200',
-      stats: { matches: 38, runs: 320, wickets: 45, average: 15.2, strikeRate: 95.5, economy: 5.8 },
-      inviteCode: 'FSCA-Z45M',
-    },
-  ]);
+  const [players, setPlayers] = useState<Player[]>([]);
 
   const [payments, setPayments] = useState<Payment[]>([
     {
@@ -210,43 +181,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [pendingParents, setPendingParents] = useState<PendingParent[]>([]);
 
-  const [parents, setParents] = useState<Parent[]>([
-    {
-      id: 'parent1',
-      name: 'Ravi Silva',
-      email: 'ravi.silva@email.com',
-      linkedPlayerId: '1',
-      status: 'active'
-    },
-    {
-      id: 'parent2',
-      name: 'Chaminda Perera',
-      email: 'chaminda.perera@email.com',
-      linkedPlayerId: '2',
-      status: 'active'
-    }
-  ]);
+  const [parents, setParents] = useState<Parent[]>([]);
 
-  const [coaches, setCoaches] = useState<Coach[]>([
-    {
-      id: 'c1',
-      name: 'Coach Rajesh Kumar',
-      email: 'rajesh@cricmate.com',
-      dateJoined: '2023-01-15'
-    },
-    {
-      id: 'c2',
-      name: 'Coach Priya Fernando',
-      email: 'priya@cricmate.com',
-      dateJoined: '2023-03-20'
-    },
-    {
-      id: 'c3',
-      name: 'Coach Anil Jayawardena',
-      email: 'anil@cricmate.com',
-      dateJoined: '2024-06-10'
-    }
-  ]);
+  const [coaches, setCoaches] = useState<Coach[]>([]);
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [matchStats, setMatchStats] = useState<Record<string, PlayerMatchStats[]>>({});

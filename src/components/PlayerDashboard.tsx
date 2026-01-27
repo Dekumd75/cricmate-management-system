@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlayerSidebar } from './PlayerSidebar';
 import { Card } from './ui/card';
@@ -6,11 +6,12 @@ import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
-import { useApp } from './AppContext';
 import { TrendingUp, Target, Award, DollarSign, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import userService from '../services/userService';
+import { toast } from 'sonner';
 
-// Mock performance data
+// Mock performance data (keep for now until we have real stats API)
 const runsOverTimeData = [
   { match: 'Match 1', runs: 45 },
   { match: 'Match 2', runs: 32 },
@@ -47,11 +48,32 @@ const paymentData = [
 
 export function PlayerDashboard() {
   const navigate = useNavigate();
-  const { players, user } = useApp();
   const [activeTab, setActiveTab] = useState('overview');
-  
-  // Get current player data
-  const player = players.find(p => p.id === user?.linkedPlayerId) || players[0];
+  const [player, setPlayer] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const profile = await userService.getPlayerProfile();
+        setPlayer(profile);
+      } catch (error) {
+        console.error('Failed to fetch player profile:', error);
+        toast.error('Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  if (loading) {
+    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  }
+
+  if (!player) {
+    return <div className="flex h-screen items-center justify-center">Player profile not found</div>;
+  }
 
   const handlePayment = (payment: any) => {
     navigate('/player/payment', {
@@ -163,17 +185,17 @@ export function PlayerDashboard() {
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                           <XAxis dataKey="match" stroke="var(--color-muted-foreground)" />
                           <YAxis stroke="var(--color-muted-foreground)" />
-                          <Tooltip 
-                            contentStyle={{ 
-                              backgroundColor: 'var(--color-card)', 
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'var(--color-card)',
                               border: '1px solid var(--color-border)',
                               borderRadius: '8px'
-                            }} 
+                            }}
                           />
-                          <Line 
-                            type="monotone" 
-                            dataKey="runs" 
-                            stroke="var(--color-primary)" 
+                          <Line
+                            type="monotone"
+                            dataKey="runs"
+                            stroke="var(--color-primary)"
                             strokeWidth={2}
                             dot={{ fill: 'var(--color-primary)', r: 4 }}
                           />
@@ -190,12 +212,12 @@ export function PlayerDashboard() {
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                           <XAxis dataKey="match" stroke="var(--color-muted-foreground)" />
                           <YAxis stroke="var(--color-muted-foreground)" />
-                          <Tooltip 
-                            contentStyle={{ 
-                              backgroundColor: 'var(--color-card)', 
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'var(--color-card)',
                               border: '1px solid var(--color-border)',
                               borderRadius: '8px'
-                            }} 
+                            }}
                           />
                           <Bar dataKey="score" fill="var(--color-accent)" radius={[8, 8, 0, 0]} />
                         </BarChart>
@@ -228,8 +250,8 @@ export function PlayerDashboard() {
                                 {getAttendanceIcon(record.status)}
                                 <span className={
                                   record.status === 'Present' ? 'text-success' :
-                                  record.status === 'Absent' ? 'text-destructive' :
-                                  'text-warning'
+                                    record.status === 'Absent' ? 'text-destructive' :
+                                      'text-warning'
                                 }>
                                   {record.status}
                                 </span>

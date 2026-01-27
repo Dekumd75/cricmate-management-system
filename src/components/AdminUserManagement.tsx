@@ -6,9 +6,9 @@ import { Input } from './ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
-import { useApp } from './AppContext';
 import { toast } from 'sonner';
 import adminService from '../services/adminService';
+import userService from '../services/userService';
 import { Search, UserPlus, Mail, Calendar } from 'lucide-react';
 
 interface PendingParent {
@@ -19,28 +19,33 @@ interface PendingParent {
   createdAt: string;
 }
 
+interface Coach {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  dateJoined: string;
+}
+
+interface ActiveUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export function AdminUserManagement() {
-  const { players, coaches, setCoaches } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateCoachOpen, setIsCreateCoachOpen] = useState(false);
   const [pendingParents, setPendingParents] = useState<PendingParent[]>([]);
-  const [loadingParents, setLoadingParents] = useState(true);
+  const [coaches, setCoaches] = useState<Coach[]>([]);
+  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [newCoach, setNewCoach] = useState({
     name: '',
     email: '',
     phone: '',
     password: ''
   });
-
-  // Get all active users (parents with linked players)
-  const activeUsers = players
-    .filter(p => p.parentId)
-    .map(p => ({
-      id: p.parentId,
-      name: `Parent of ${p.name}`,
-      email: `parent.${p.id}@email.com`,
-      role: 'Parent'
-    }));
 
   // Fetch pending parents from API
   useEffect(() => {
@@ -51,12 +56,40 @@ export function AdminUserManagement() {
       } catch (error) {
         console.error('Failed to fetch pending parents:', error);
         toast.error('Failed to load pending parents');
-      } finally {
-        setLoadingParents(false);
       }
     };
 
     fetchPendingParents();
+  }, []);
+
+  // Fetch coaches from API
+  useEffect(() => {
+    const fetchCoaches = async () => {
+      try {
+        const coaches = await userService.getCoaches();
+        setCoaches(coaches);
+      } catch (error) {
+        console.error('Failed to fetch coaches:', error);
+        toast.error('Failed to load coaches');
+      }
+    };
+
+    fetchCoaches();
+  }, []);
+
+  // Fetch active users from API
+  useEffect(() => {
+    const fetchActiveUsers = async () => {
+      try {
+        const users = await userService.getActiveUsers();
+        setActiveUsers(users);
+      } catch (error) {
+        console.error('Failed to fetch active users:', error);
+        toast.error('Failed to load active users');
+      }
+    };
+
+    fetchActiveUsers();
   }, []);
 
   const handleApproveParent = async (parentId: number, parentName: string) => {
@@ -87,24 +120,24 @@ export function AdminUserManagement() {
     e.preventDefault();
 
     try {
-      const response = await adminService.createCoach({
+      await adminService.createCoach({
         name: newCoach.name,
         email: newCoach.email,
         phone: newCoach.phone,
         password: newCoach.password
       });
 
-      const coach = {
-        id: response.coach.id,
-        name: response.coach.name,
-        email: response.coach.email,
-        dateJoined: new Date().toISOString().split('T')[0]
-      };
-
-      setCoaches([...coaches, coach]);
       toast.success(`Coach ${newCoach.name} has been created successfully!`);
       setIsCreateCoachOpen(false);
       setNewCoach({ name: '', email: '', phone: '', password: '' });
+
+      // Refetch coaches to show the new coach immediately
+      try {
+        const updatedCoaches = await userService.getCoaches();
+        setCoaches(updatedCoaches);
+      } catch (error) {
+        console.error('Failed to refresh coaches list:', error);
+      }
     } catch (error: any) {
       console.error('Create coach error:', error);
       const errorMessage = error.response?.data?.message || 'Failed to create coach';
