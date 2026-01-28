@@ -16,7 +16,7 @@ const PasswordReset = sequelize.define('PasswordReset', {
         }
     },
     resetToken: {
-        type: DataTypes.STRING(10),
+        type: DataTypes.STRING(255),
         allowNull: false
     },
     expiryDate: {
