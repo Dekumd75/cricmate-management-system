@@ -75,6 +75,8 @@ interface Match {
   opponent: string;
   date: string;
   venue: string;
+  matchType?: 'Practice match' | 'Tournament match';
+  result?: 'Won' | 'Lost' | 'Draw' | 'No Result';
   status: 'draft' | 'squad-selected' | 'completed';
   squadIds: string[];
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
@@ -13,10 +13,51 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { useApp } from './AppContext';
-import { ArrowLeft, CheckCircle, XCircle, Clock, Copy, Eye } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, Copy, Eye, Wifi } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
 import userService from '../services/userService';
+import api from '../services/api';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface PlayerStats {
+  matches: number;
+  runs: number;
+  wickets: number;
+  catches: number;
+  fours: number;
+  sixes: number;
+  average: number;
+  strikeRate: number;
+  economy: number;
+}
+
+interface MatchHistory {
+  matchId: number;
+  opponent: string;
+  date: string | null;
+  venue: string;
+  result: string | null;
+  runs: number;
+  wickets: number;
+  fours: number;
+  sixes: number;
+  catches: number;
+  oversBowled: number;
+  runsConceded: number;
+  isOut: boolean;
+}
+
+interface AttendanceRecord {
+  recordID: number;
+  attendanceDate: string;
+  status: 'present' | 'absent' | 'early-leave';
+  checkInTime?: string;
+  checkOutTime?: string;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function PlayerProfile() {
   const navigate = useNavigate();
@@ -29,27 +70,47 @@ export function PlayerProfile() {
   const [player, setPlayer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Get player ID from URL params or use linked player for parents
+  // Real data states
+  const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
+  const [matchHistory, setMatchHistory] = useState<MatchHistory[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [isLive, setIsLive] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const playerIdFromUrl = searchParams.get('id');
   const playerId = playerIdFromUrl || user?.linkedPlayerId;
 
+  // ── Fetch player info ─────────────────────────────────────────────────────
   useEffect(() => {
     const fetchPlayerData = async () => {
       if (!playerId) return;
-
       setLoading(true);
       try {
-        // For admin and coach, we can fetch from the players list
         if (user?.role === 'admin' || user?.role === 'coach') {
           const players = await userService.getPlayers(user.role);
-          const foundPlayer = players.find((p: any) => p.id === playerId);
-          if (foundPlayer) {
-            setPlayer(foundPlayer);
+          const foundPlayer = players.find((p: any) => p.id === playerId || p.id === String(playerId));
+          if (foundPlayer) setPlayer(foundPlayer);
+        } else if (user?.role === 'parent') {
+          // Step 1: try to find the child in the linked-children list
+          const res = await api.get('/auth/linked-children');
+          const children: any[] = res.data.children || [];
+          const foundChild = children.find(
+            (c: any) => String(c.id) === String(playerId)
+          );
+          if (foundChild) {
+            setPlayer(foundChild);
           } else {
-            console.error('Player not found in list');
+            // Fallback: fetch player info directly by ID
+            const infoRes = await api.get(`/player/${playerId}/info`);
+            if (infoRes.data?.player) {
+              setPlayer(infoRes.data.player);
+            }
           }
+        } else if (user?.role === 'player') {
+          const profile = await userService.getPlayerProfile();
+          if (profile) setPlayer(profile);
         }
-        // Note: Parent handling would go here, relying on future endpoint
       } catch (error) {
         console.error('Failed to fetch player data:', error);
         toast.error('Failed to load player profile');
@@ -61,16 +122,89 @@ export function PlayerProfile() {
     fetchPlayerData();
   }, [playerId, user?.role]);
 
-  if (loading) {
-    return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
-  }
+  // ── Fetch player career stats ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!playerId) return;
 
-  if (!player) {
-    return <div className="flex min-h-screen items-center justify-center">Player not found</div>;
-  }
+    const fetchStats = async () => {
+      try {
+        const response = await api.get(`/player/${playerId}/stats`);
+        setPlayerStats(response.data.stats);
+      } catch (error) {
+        console.error('Failed to fetch player stats:', error);
+      }
+    };
 
+    fetchStats();
+  }, [playerId]);
+
+  // ── Fetch match history for charts ───────────────────────────────────────
+  useEffect(() => {
+    if (!playerId) return;
+
+    const fetchHistory = async () => {
+      try {
+        const response = await api.get(`/player/${playerId}/match-history`);
+        setMatchHistory(response.data.history || []);
+      } catch (error) {
+        console.error('Failed to fetch match history:', error);
+      }
+    };
+
+    fetchHistory();
+  }, [playerId]);
+
+  // ── Fetch & poll attendance every 10 seconds ─────────────────────────────
+  const fetchAttendance = async () => {
+    if (!playerId) return;
+    try {
+      const response = await api.get(`/attendance/player/${playerId}`);
+      setAttendanceRecords(response.data.records || []);
+      setLastRefreshed(new Date());
+      setIsLive(true);
+    } catch (error) {
+      console.error('Failed to fetch attendance:', error);
+      setIsLive(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!playerId) return;
+
+    fetchAttendance();
+
+    // Poll every 10 seconds
+    pollIntervalRef.current = setInterval(fetchAttendance, 10000);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerId]);
+
+  // ── Re-fetch stats when switching to Performance / Overview tabs ──────────
+  useEffect(() => {
+    if ((activeTab === 'overview' || activeTab === 'performance') && playerId) {
+      api.get(`/player/${playerId}/stats`)
+        .then(r => setPlayerStats(r.data.stats))
+        .catch(() => {});
+
+      api.get(`/player/${playerId}/match-history`)
+        .then(r => setMatchHistory(r.data.history || []))
+        .catch(() => {});
+    }
+
+    if (activeTab === 'attendance') {
+      fetchAttendance();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const copyInviteCode = () => {
-    if (player.inviteCode) {
+    if (player?.inviteCode) {
       navigator.clipboard.writeText(player.inviteCode);
       toast.success('Invite code copied to clipboard!');
     }
@@ -81,7 +215,6 @@ export function PlayerProfile() {
       toast.error('Please fill in all payment fields');
       return;
     }
-
     const newPayment = {
       id: `payment-${Date.now()}`,
       playerId: player.id,
@@ -90,38 +223,64 @@ export function PlayerProfile() {
       dueDate: manualPaymentDate,
       status: 'paid' as const,
     };
-
     setPayments([...payments, newPayment]);
     setManualPaymentAmount('');
     setManualPaymentDate('');
     toast.success('Payment recorded successfully!');
   };
 
-  const performanceData = [
-    { match: 'Match 1', runs: 45 },
-    { match: 'Match 2', runs: 32 },
-    { match: 'Match 3', runs: 67 },
-    { match: 'Match 4', runs: 23 },
-    { match: 'Match 5', runs: 51 },
-    { match: 'Match 6', runs: 38 },
-  ];
+  const formatTime = (time?: string) => {
+    if (!time) return '—';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
 
-  const recentScores = [
-    { match: 'vs Team A', score: 51 },
-    { match: 'vs Team B', score: 38 },
-    { match: 'vs Team C', score: 67 },
-    { match: 'vs Team D', score: 23 },
-  ];
+  // ── Derived chart data ────────────────────────────────────────────────────
+  const performanceData = matchHistory.map((m, i) => ({
+    match: m.opponent ? `vs ${m.opponent}` : `Match ${i + 1}`,
+    runs: m.runs,
+    wickets: m.wickets,
+  }));
 
-  const attendanceData = [
-    { date: '2025-10-15', status: 'present', checkIn: '15:00', checkOut: '18:00' },
-    { date: '2025-10-12', status: 'present', checkIn: '15:00', checkOut: '18:00' },
-    { date: '2025-10-10', status: 'early-leave', checkIn: '15:00', checkOut: '17:00' },
-    { date: '2025-10-08', status: 'absent', checkIn: '-', checkOut: '-' },
-    { date: '2025-10-05', status: 'present', checkIn: '15:00', checkOut: '18:00' },
-  ];
+  const recentScores = [...matchHistory]
+    .slice(-6)
+    .map((m, i) => ({
+      match: m.opponent ? `vs ${m.opponent}` : `Match ${i + 1}`,
+      score: m.runs,
+    }));
 
-  const playerPayments = payments.filter(p => p.playerId === player.id);
+  const playerPayments = payments.filter(p => p.playerId === player?.id);
+
+  const stats = playerStats ?? {
+    matches: player?.stats?.matches ?? 0,
+    runs: player?.stats?.runs ?? 0,
+    wickets: player?.stats?.wickets ?? 0,
+    average: player?.stats?.average ?? 0,
+    strikeRate: player?.stats?.strikeRate ?? 0,
+    economy: player?.stats?.economy ?? 0,
+    catches: 0,
+    fours: 0,
+    sixes: 0,
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-muted-foreground">Loading player profile…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!player) {
+    return <div className="flex min-h-screen items-center justify-center">Player not found</div>;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -131,13 +290,9 @@ export function PlayerProfile() {
           <Button
             variant="ghost"
             onClick={() => {
-              if (user?.role === 'parent') {
-                navigate('/parent/dashboard');
-              } else if (user?.role === 'coach') {
-                navigate('/coach/players');
-              } else if (user?.role === 'admin') {
-                navigate('/admin/players');
-              }
+              if (user?.role === 'parent') navigate('/parent/dashboard');
+              else if (user?.role === 'coach') navigate('/coach/players');
+              else if (user?.role === 'admin') navigate('/admin/players');
             }}
             className="mb-4"
           >
@@ -148,13 +303,13 @@ export function PlayerProfile() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Player Header */}
+        {/* Player Header Card */}
         <Card className="p-6 mb-6">
           <div className="flex items-center gap-6">
             <img
               src={player.photo}
               alt={player.name}
-              className="w-24 h-24 rounded-full object-cover"
+              className="w-24 h-24 rounded-full object-cover ring-2 ring-primary/20"
             />
             <div className="flex-1">
               <h1>{player.name}</h1>
@@ -162,7 +317,6 @@ export function PlayerProfile() {
                 Age {player.age} • {player.role}
               </p>
 
-              {/* Show invite code button only to coaches */}
               {user?.role === 'coach' && player.inviteCode && (
                 <div className="mt-3">
                   <Button
@@ -177,6 +331,22 @@ export function PlayerProfile() {
                 </div>
               )}
             </div>
+
+            {/* Quick stat pills */}
+            <div className="hidden md:flex gap-4 text-center">
+              <div className="bg-primary/5 rounded-xl px-4 py-2">
+                <p className="text-2xl font-bold text-primary">{stats.matches}</p>
+                <p className="text-xs text-muted-foreground">Matches</p>
+              </div>
+              <div className="bg-primary/5 rounded-xl px-4 py-2">
+                <p className="text-2xl font-bold text-primary">{stats.runs}</p>
+                <p className="text-xs text-muted-foreground">Runs</p>
+              </div>
+              <div className="bg-primary/5 rounded-xl px-4 py-2">
+                <p className="text-2xl font-bold text-primary">{stats.wickets}</p>
+                <p className="text-xs text-muted-foreground">Wickets</p>
+              </div>
+            </div>
           </div>
         </Card>
 
@@ -185,127 +355,281 @@ export function PlayerProfile() {
           <TabsList className="mb-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="attendance">Attendance</TabsTrigger>
+            <TabsTrigger value="attendance">
+              Attendance
+              {isLive && (
+                <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs bg-success/20 text-success">
+                  <Wifi className="w-2.5 h-2.5" />
+                  Live
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
+          {/* ── Overview Tab ───────────────────────────────────────────────── */}
           <TabsContent value="overview">
-            <Card className="p-6">
-              <h3 className="mb-6">Career Statistics</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="text-center">
-                  <p className="text-4xl mb-2">{player.stats.matches}</p>
-                  <p className="text-muted-foreground">Matches Played</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-4xl mb-2">{player.stats.runs}</p>
-                  <p className="text-muted-foreground">Total Runs</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-4xl mb-2">{player.stats.wickets}</p>
-                  <p className="text-muted-foreground">Total Wickets</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-4xl mb-2">{player.stats.average}</p>
-                  <p className="text-muted-foreground">Batting Average</p>
-                </div>
-              </div>
-            </Card>
-          </TabsContent>
-
-          {/* Performance Tab */}
-          <TabsContent value="performance">
             <div className="space-y-6">
               <Card className="p-6">
-                <h3 className="mb-6">Runs Over Time</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={performanceData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="match" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="runs" stroke="#1e3a8a" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <h3 className="mb-6">Career Statistics</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                  {[
+                    { label: 'Matches', value: stats.matches },
+                    { label: 'Total Runs', value: stats.runs },
+                    { label: 'Wickets', value: stats.wickets },
+                    { label: 'Batting Avg', value: stats.average },
+                    { label: 'Strike Rate', value: stats.strikeRate },
+                    { label: 'Economy', value: stats.economy },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="text-center">
+                      <p className="text-4xl font-bold mb-1">{value}</p>
+                      <p className="text-sm text-muted-foreground">{label}</p>
+                    </div>
+                  ))}
+                </div>
               </Card>
 
-              <Card className="p-6">
-                <h3 className="mb-6">Recent Scores</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={recentScores}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="match" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="score" fill="#1e3a8a" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card>
+              {/* Extra stats row */}
+              {playerStats && (
+                <Card className="p-6">
+                  <h3 className="mb-4">Batting Breakdown</h3>
+                  <div className="grid grid-cols-3 gap-6 text-center">
+                    <div>
+                      <p className="text-3xl font-bold text-warning">{stats.fours}</p>
+                      <p className="text-sm text-muted-foreground">Fours (4s)</p>
+                    </div>
+                    <div>
+                      <p className="text-3xl font-bold text-success">{stats.sixes}</p>
+                      <p className="text-sm text-muted-foreground">Sixes (6s)</p>
+                    </div>
+                    <div>
+                      <p className="text-3xl font-bold text-primary">{stats.catches}</p>
+                      <p className="text-sm text-muted-foreground">Catches</p>
+                    </div>
+                  </div>
+                </Card>
+              )}
             </div>
           </TabsContent>
 
-          {/* Attendance Tab */}
+          {/* ── Performance Tab ────────────────────────────────────────────── */}
+          <TabsContent value="performance">
+            <div className="space-y-6">
+              <Card className="p-6">
+                <h3 className="mb-6">Runs Per Match</h3>
+                {performanceData.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    No match data available yet
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={performanceData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="match" tick={{ fontSize: 12 }} />
+                      <YAxis />
+                      <Tooltip />
+                      <Line
+                        type="monotone"
+                        dataKey="runs"
+                        stroke="#1e3a8a"
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </Card>
+
+              <Card className="p-6">
+                <h3 className="mb-6">Recent Scores (Last 6 Matches)</h3>
+                {recentScores.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    No match data available yet
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={recentScores}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="match" tick={{ fontSize: 12 }} />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="score" fill="#1e3a8a" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </Card>
+
+              {/* Per-match breakdown table */}
+              {matchHistory.length > 0 && (
+                <Card className="p-6">
+                  <h3 className="mb-4">Match-by-Match Breakdown</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left pb-3 text-muted-foreground font-medium">Match</th>
+                          <th className="text-center pb-3 text-muted-foreground font-medium">Runs</th>
+                          <th className="text-center pb-3 text-muted-foreground font-medium">Wkts</th>
+                          <th className="text-center pb-3 text-muted-foreground font-medium">4s</th>
+                          <th className="text-center pb-3 text-muted-foreground font-medium">6s</th>
+                          <th className="text-center pb-3 text-muted-foreground font-medium">Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matchHistory.map((m, i) => (
+                          <tr key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                            <td className="py-3 pr-4">
+                              <p className="font-medium">vs {m.opponent}</p>
+                              {m.date && (
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(m.date).toLocaleDateString()}
+                                </p>
+                              )}
+                            </td>
+                            <td className="text-center py-3 font-semibold">{m.runs}</td>
+                            <td className="text-center py-3">{m.wickets}</td>
+                            <td className="text-center py-3">{m.fours}</td>
+                            <td className="text-center py-3">{m.sixes}</td>
+                            <td className="text-center py-3">
+                              {m.result ? (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  m.result === 'Won' ? 'bg-success/10 text-success' :
+                                  m.result === 'Lost' ? 'bg-destructive/10 text-destructive' :
+                                  'bg-muted text-muted-foreground'
+                                }`}>
+                                  {m.result}
+                                </span>
+                              ) : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ── Attendance Tab ─────────────────────────────────────────────── */}
           <TabsContent value="attendance">
             <Card className="p-6">
-              <h3 className="mb-6">Attendance History</h3>
-              <div className="space-y-3">
-                {attendanceData.map((record, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-4 border border-border rounded-lg"
-                  >
-                    <div className="flex items-center gap-4">
-                      {record.status === 'present' && (
-                        <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                          <CheckCircle className="w-5 h-5 text-success" />
+              {/* Header with live indicator */}
+              <div className="flex items-center justify-between mb-6">
+                <h3>Attendance History</h3>
+                <div className="flex items-center gap-3">
+                  {lastRefreshed && (
+                    <p className="text-xs text-muted-foreground">
+                      Refreshed {lastRefreshed.toLocaleTimeString()}
+                    </p>
+                  )}
+                  {isLive && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-success/10 text-success border border-success/20">
+                      <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                      Live • auto-refreshing every 10s
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Summary row */}
+              {attendanceRecords.length > 0 && (
+                <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-muted/30 rounded-xl">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-success">
+                      {attendanceRecords.filter(r => r.status === 'present').length}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Present</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-destructive">
+                      {attendanceRecords.filter(r => r.status === 'absent').length}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Absent</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-warning">
+                      {attendanceRecords.filter(r => r.status === 'early-leave').length}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Left Early</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Records list */}
+              {attendanceRecords.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No attendance records found
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {attendanceRecords.map((record) => (
+                    <div
+                      key={record.recordID}
+                      className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/20 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        {record.status === 'present' && (
+                          <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                            <CheckCircle className="w-5 h-5 text-success" />
+                          </div>
+                        )}
+                        {record.status === 'absent' && (
+                          <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                            <XCircle className="w-5 h-5 text-destructive" />
+                          </div>
+                        )}
+                        {record.status === 'early-leave' && (
+                          <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                            <Clock className="w-5 h-5 text-warning" />
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium">
+                            {new Date(record.attendanceDate).toLocaleDateString('en-US', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                            })}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {record.status === 'present' && 'Present'}
+                            {record.status === 'absent' && 'Absent'}
+                            {record.status === 'early-leave' && 'Left Early'}
+                          </p>
                         </div>
-                      )}
-                      {record.status === 'absent' && (
-                        <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
-                          <XCircle className="w-5 h-5 text-destructive" />
-                        </div>
-                      )}
-                      {record.status === 'early-leave' && (
-                        <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
-                          <Clock className="w-5 h-5 text-warning" />
-                        </div>
-                      )}
-                      <div>
-                        <p>{new Date(record.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                      </div>
+                      <div className="text-right">
                         <p className="text-sm text-muted-foreground">
-                          {record.status === 'present' && 'Present'}
-                          {record.status === 'absent' && 'Absent'}
-                          {record.status === 'early-leave' && 'Left Early'}
+                          Check In: {formatTime(record.checkInTime)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Check Out: {formatTime(record.checkOutTime)}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Check In: {record.checkIn}</p>
-                      <p className="text-sm text-muted-foreground">Check Out: {record.checkOut}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </TabsContent>
 
-          {/* Payments Tab */}
+          {/* ── Payments Tab ───────────────────────────────────────────────── */}
           <TabsContent value="payments">
             <div className="space-y-6">
-              {/* Outstanding Fee - Only for Coaches */}
               {user?.role === 'coach' && (
                 <Card className="p-6 bg-warning/5 border-warning">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="mb-1">Outstanding Fee for the Month</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Total pending and overdue payments
-                      </p>
+                      <p className="text-sm text-muted-foreground">Total pending and overdue</p>
                     </div>
                     <div className="text-right">
                       <p className="text-3xl text-warning">
-                        LKR {playerPayments
+                        LKR{' '}
+                        {playerPayments
                           .filter(p => p.status === 'pending' || p.status === 'overdue')
                           .reduce((sum, p) => sum + p.amount, 0)
                           .toLocaleString()}
@@ -315,7 +639,6 @@ export function PlayerProfile() {
                 </Card>
               )}
 
-              {/* Manual Payment - Only for Coaches */}
               {user?.role === 'coach' && (
                 <Card className="p-6">
                   <h3 className="mb-6">Manual Payment</h3>
@@ -341,17 +664,13 @@ export function PlayerProfile() {
                         />
                       </div>
                     </div>
-                    <Button
-                      onClick={handleManualPayment}
-                      className="bg-primary hover:bg-primary/90"
-                    >
+                    <Button onClick={handleManualPayment} className="bg-primary hover:bg-primary/90">
                       Save Payment
                     </Button>
                   </div>
                 </Card>
               )}
 
-              {/* Payment History */}
               <Card className="p-6">
                 <h3 className="mb-6">Payment History</h3>
                 <div className="space-y-3">
@@ -373,20 +692,17 @@ export function PlayerProfile() {
                           <p className="text-lg mb-1">LKR {payment.amount.toLocaleString()}</p>
                           {payment.status === 'paid' && (
                             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-success/10 text-success">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Paid
+                              <CheckCircle className="w-3 h-3 mr-1" /> Paid
                             </span>
                           )}
                           {payment.status === 'overdue' && (
                             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-destructive/10 text-destructive">
-                              <XCircle className="w-3 h-3 mr-1" />
-                              Overdue
+                              <XCircle className="w-3 h-3 mr-1" /> Overdue
                             </span>
                           )}
                           {payment.status === 'pending' && (
                             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-warning/10 text-warning">
-                              <Clock className="w-3 h-3 mr-1" />
-                              Pending
+                              <Clock className="w-3 h-3 mr-1" /> Pending
                             </span>
                           )}
                         </div>
@@ -418,12 +734,7 @@ export function PlayerProfile() {
               <p className="text-sm text-muted-foreground mb-2">Invite Code</p>
               <div className="flex items-center justify-center gap-3">
                 <p className="text-3xl tracking-wider select-all">{player.inviteCode}</p>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={copyInviteCode}
-                  className="shrink-0"
-                >
+                <Button variant="outline" size="icon" onClick={copyInviteCode} className="shrink-0">
                   <Copy className="w-4 h-4" />
                 </Button>
               </div>

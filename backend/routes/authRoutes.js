@@ -654,4 +654,168 @@ router.post('/reset-password', async (req, res) => {
     }
 });
 
+// @route   POST /api/auth/redeem-code
+// @desc    Parent redeems an invite code to link a child's profile
+// @access  Private (parent only)
+router.post('/redeem-code', authMiddleware, async (req, res) => {
+    try {
+        const { code } = req.body;
+        const { InviteCode, User, PlayerProfile } = require('../models');
+
+        if (!code) {
+            return res.status(400).json({ message: 'Please provide an invite code' });
+        }
+
+        // Only parents can redeem codes
+        if (req.user.role !== 'parent') {
+            return res.status(403).json({ message: 'Only parents can redeem invite codes' });
+        }
+
+        // Find the invite code
+        const inviteCode = await InviteCode.findOne({
+            where: { codeValue: code.toUpperCase().trim() }
+        });
+
+        if (!inviteCode) {
+            return res.status(404).json({ message: 'Invalid invite code. Please check and try again.' });
+        }
+
+        // Check if expired
+        if (inviteCode.expiryDate && new Date() > new Date(inviteCode.expiryDate)) {
+            return res.status(400).json({ message: 'This invite code has expired. Please ask the coach for a new code.' });
+        }
+
+        // Check if already used by someone else
+        if (inviteCode.isUsed && inviteCode.parentUserID && inviteCode.parentUserID !== req.user.id) {
+            return res.status(400).json({ message: 'This invite code has already been used by another account.' });
+        }
+
+        // Check if this parent already linked this child
+        if (inviteCode.isUsed && inviteCode.parentUserID === req.user.id) {
+            return res.status(400).json({ message: 'You have already linked this child to your account.' });
+        }
+
+        // Mark the code as used and record which parent redeemed it
+        await inviteCode.update({
+            isUsed: true,
+            parentUserID: req.user.id
+        });
+
+        // Fetch the linked player's details
+        const player = await User.findByPk(inviteCode.playerUserID, {
+            include: [{
+                model: PlayerProfile,
+                as: 'playerProfile',
+                required: false
+            }]
+        });
+
+        if (!player) {
+            return res.status(404).json({ message: 'Player not found for this invite code' });
+        }
+
+        const profile = player.playerProfile;
+        const age = profile?.dob
+            ? new Date().getFullYear() - new Date(profile.dob).getFullYear()
+            : 0;
+
+        // Log in audit log
+        await AuditLog.create({
+            userID: req.user.id,
+            action: 'INVITE_CODE_REDEEMED',
+            entity: 'InviteCode',
+            entityID: inviteCode.codeID,
+            timestamp: new Date()
+        });
+
+        res.json({
+            message: `Successfully linked ${player.name} to your account!`,
+            player: {
+                id: player.id.toString(),
+                name: player.name,
+                age,
+                role: profile?.playerRole || 'Player',
+                photo: profile?.photoURL || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=200'
+            }
+        });
+    } catch (error) {
+        console.error('Redeem code error:', error);
+        res.status(500).json({ message: 'Server error while redeeming invite code' });
+    }
+});
+
+// @route   GET /api/auth/linked-children
+// @desc    Get all children linked to the authenticated parent
+// @access  Private (parent only)
+router.get('/linked-children', authMiddleware, async (req, res) => {
+    try {
+        const { InviteCode, User, PlayerProfile, MatchStats } = require('../models');
+
+        if (req.user.role !== 'parent') {
+            return res.status(403).json({ message: 'Only parents can view linked children' });
+        }
+
+        // Find all invite codes redeemed by this parent
+        const usedCodes = await InviteCode.findAll({
+            where: {
+                parentUserID: req.user.id,
+                isUsed: true
+            }
+        });
+
+        if (usedCodes.length === 0) {
+            return res.json({ children: [] });
+        }
+
+        const playerIds = usedCodes.map(c => c.playerUserID);
+
+        // Fetch each player with their profile
+        const players = await User.findAll({
+            where: { id: playerIds },
+            include: [{
+                model: PlayerProfile,
+                as: 'playerProfile',
+                required: false
+            }]
+        });
+
+        // Build response with basic stats
+        const children = await Promise.all(players.map(async (player) => {
+            const profile = player.playerProfile;
+            const age = profile?.dob
+                ? new Date().getFullYear() - new Date(profile.dob).getFullYear()
+                : 0;
+
+            // Quick stats aggregate
+            const matchStats = await MatchStats.findAll({
+                where: { playerUserID: player.id }
+            });
+            const totalMatches = new Set(matchStats.map(s => s.matchID)).size;
+            const totalRuns = matchStats.reduce((sum, s) => sum + (s.runsScored || 0), 0);
+            const totalWickets = matchStats.reduce((sum, s) => sum + (s.wicketsTaken || 0), 0);
+            const timesOut = matchStats.filter(s => s.wasOut).length;
+            const average = timesOut > 0 ? (totalRuns / timesOut).toFixed(2) : totalRuns.toFixed(2);
+
+            return {
+                id: player.id.toString(),
+                name: player.name,
+                age,
+                role: profile?.playerRole || 'Player',
+                photo: profile?.photoURL || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=200',
+                stats: {
+                    matches: totalMatches,
+                    runs: totalRuns,
+                    wickets: totalWickets,
+                    average: parseFloat(average)
+                }
+            };
+        }));
+
+        res.json({ children });
+    } catch (error) {
+        console.error('Get linked children error:', error);
+        res.status(500).json({ message: 'Server error while fetching linked children' });
+    }
+});
+
 module.exports = router;

@@ -12,7 +12,7 @@ import academyLogo from 'figma:asset/5f0e47ee1de07031fdbf28920fd9d31a3b58bce9.pn
 
 export function ParentRegistrationScreen() {
   const navigate = useNavigate();
-  const { setUser, user, players, parents, setParents } = useApp();
+  const { setUser, user } = useApp();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -26,7 +26,6 @@ export function ParentRegistrationScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
-  const [linkedChildName, setLinkedChildName] = useState<string | null>(null);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -108,8 +107,25 @@ export function ParentRegistrationScreen() {
         role: 'parent'
       });
 
+      // If an invite code was entered, try to redeem it immediately using the new token
+      if (formData.inviteCode.trim() && response.token) {
+        try {
+          const axios = (await import('axios')).default;
+          const redeemRes = await axios.post(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/redeem-code`,
+            { code: formData.inviteCode.trim() },
+            { headers: { Authorization: `Bearer ${response.token}` } }
+          );
+          const childName = redeemRes.data.player?.name;
+          if (childName) console.log('Linked child:', childName);
+        } catch (redeemErr: any) {
+          // Don't block registration — just show info
+          console.warn('Invite code could not be redeemed:', (redeemErr as any).response?.data?.message);
+        }
+      }
+
       // Don't auto-login if account is pending
-      if (response.user.accountStatus === 'pending') {
+      if ((response.user as any).accountStatus === 'pending') {
         setRegistrationSuccess(true);
         setIsSubmitting(false);
 

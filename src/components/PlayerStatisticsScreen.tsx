@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { CoachSidebar } from './CoachSidebar';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
@@ -12,6 +11,8 @@ import { Plus, Search, ChevronRight, CheckCircle, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from './ui/checkbox';
 import api from '../services/api';
+import matchService from '../services/matchService';
+import opponentService from '../services/opponentService';
 
 type MatchStatus = 'draft' | 'squad-selected' | 'completed';
 
@@ -41,7 +42,6 @@ interface PlayerMatchStats {
 }
 
 export function PlayerStatisticsScreen() {
-  const navigate = useNavigate();
   const { players, setPlayers, matches, setMatches, matchStats, setMatchStats } = useApp();
   const [view, setView] = useState<'list' | 'create' | 'select-squad' | 'enter-stats'>('list');
   const [currentMatch, setCurrentMatch] = useState<Match | null>(null);
@@ -78,6 +78,7 @@ export function PlayerStatisticsScreen() {
   const [catches, setCatches] = useState('');
   const [isOut, setIsOut] = useState(false);
 
+
   // Fetch real players from database
   useEffect(() => {
     const fetchPlayers = async () => {
@@ -112,24 +113,20 @@ export function PlayerStatisticsScreen() {
     fetchPlayers();
   }, []);
 
-  // Fetch opponents from database (frontend only - mock for now)
+  // Fetch opponents from database
   useEffect(() => {
     const fetchOpponents = async () => {
       try {
         setIsLoadingOpponents(true);
-        // TODO: Replace with actual API endpoint when backend is ready
-        // const response = await api.get('/coach/opponents');
-        // setOpponents(response.data.opponents);
-
-        // For now, using mock data
-        setOpponents([
-          { id: '1', name: 'India U19', phone: '+94771234567' },
-          { id: '2', name: 'Pakistan Cricket Club', phone: '+94771234568' },
-          { id: '3', name: 'Bangladesh Academy', phone: '+94771234569' }
-        ]);
+        const opponents = await opponentService.getAllOpponents();
+        setOpponents(opponents.map((opp: any) => ({
+          id: opp.opponentID.toString(),
+          name: opp.opponentName,
+          phone: opp.contactInfo || ''
+        })));
       } catch (error) {
         console.error('Error fetching opponents:', error);
-        // Don't show error for mock data
+        toast.error('Failed to load opponents');
       } finally {
         setIsLoadingOpponents(false);
       }
@@ -138,62 +135,165 @@ export function PlayerStatisticsScreen() {
     fetchOpponents();
   }, []);
 
-  const handleAddOpponent = () => {
-    if (!newOpponentName || !newOpponentPhone) {
-      toast.error('Please provide opponent name and phone number');
+  // Fetch matches from database
+  useEffect(() => {
+    const fetchMatches = async () => {
+      try {
+        const fetchedMatches = await matchService.getAllMatches();
+        // Transform backend matches to frontend format
+        const transformedMatches = fetchedMatches.map((match: any) => {
+          // Parse squadIds if it's a JSON string
+          let parsedSquadIds = match.squadIds || [];
+          if (typeof parsedSquadIds === 'string') {
+            try {
+              parsedSquadIds = JSON.parse(parsedSquadIds);
+            } catch (e) {
+              console.error('Failed to parse squadIds:', e);
+              parsedSquadIds = [];
+            }
+          }
+          // Ensure it's an array
+          if (!Array.isArray(parsedSquadIds)) {
+            parsedSquadIds = [];
+          }
+
+          return {
+            id: match.matchID.toString(),
+            opponent: match.opponent?.opponentName || 'Unknown',
+            date: match.matchDate,
+            venue: match.venue,
+            matchType: match.matchType as 'Practice match' | 'Tournament match',
+            result: match.result as 'Won' | 'Lost' | 'Draw' | 'No Result' | undefined,
+            status: match.status === 'completed' ? 'completed' as MatchStatus :
+              match.status === 'squad-confirmed' ? 'squad-selected' as MatchStatus :
+                'draft' as MatchStatus,
+            squadIds: parsedSquadIds
+          };
+        });
+        setMatches(transformedMatches);
+      } catch (error) {
+        console.error('Error fetching matches:', error);
+        toast.error('Failed to load matches');
+      }
+    };
+
+    fetchMatches();
+  }, []);
+
+  // Fetch match stats when entering stats view
+  useEffect(() => {
+    if (view === 'enter-stats' && currentMatch) {
+      const fetchStats = async () => {
+        try {
+          const stats = await matchService.getMatchStats(parseInt(currentMatch.id));
+
+          // Transform stats to the format used by matchStats state
+          const statsById: { [matchId: string]: any[] } = {};
+          statsById[currentMatch.id] = stats.map((stat: any) => ({
+            playerId: stat.playerUserID.toString(),
+            runs: stat.runsScored || 0,
+            wickets: stat.wicketsTaken || 0,
+            stumps: stat.stumping || 0,
+            oversBowled: stat.oversBowled || 0,
+            runsConceded: stat.runsConceded || 0,
+            sixes: stat.sixes || 0,
+            fours: stat.fours || 0,
+            catches: stat.catches || 0,
+            isOut: stat.wasOut || false
+          }));
+
+          setMatchStats({ ...matchStats, ...statsById } as any);
+        } catch (error) {
+          console.error('Error fetching match stats:', error);
+        }
+      };
+
+      fetchStats();
+    }
+  }, [view, currentMatch]);
+
+  const handleAddOpponent = async () => {
+    if (!newOpponentName) {
+      toast.error('Please provide opponent name');
       return;
     }
 
-    // TODO: Replace with actual API call when backend is ready
-    // const response = await api.post('/coach/opponents', { name: newOpponentName, phone: newOpponentPhone });
+    try {
+      const response = await opponentService.createOpponent(newOpponentName, newOpponentPhone);
+      const newOpponent = {
+        id: response.opponent.opponentID.toString(),
+        name: response.opponent.opponentName,
+        phone: response.opponent.contactInfo || ''
+      };
 
-    // For now, add to local state
-    const newOpponent = {
-      id: Date.now().toString(),
-      name: newOpponentName,
-      phone: newOpponentPhone
-    };
+      setOpponents([...opponents, newOpponent]);
+      setOpponent(newOpponentName); // Select the newly added opponent
 
-    setOpponents([...opponents, newOpponent]);
-    setOpponent(newOpponentName); // Select the newly added opponent
+      // Reset form and close dialog
+      setNewOpponentName('');
+      setNewOpponentPhone('');
+      setShowAddOpponentDialog(false);
 
-    // Reset form and close dialog
-    setNewOpponentName('');
-    setNewOpponentPhone('');
-    setShowAddOpponentDialog(false);
-
-    toast.success(`Opponent "${newOpponentName}" added successfully!`);
+      toast.success(`Opponent "${newOpponentName}" added successfully!`);
+    } catch (error: any) {
+      console.error('Error adding opponent:', error);
+      toast.error(error.response?.data?.message || 'Failed to add opponent');
+    }
   };
 
-  const handleCreateMatch = () => {
+  const handleCreateMatch = async () => {
     if (!opponent || !matchDate || !venue) {
       toast.error('Please fill in all match details');
       return;
     }
 
-    const newMatch: Match = {
-      id: `match-${Date.now()}`,
-      opponent,
-      date: matchDate,
-      venue,
-      matchType,
-      result,
-      status: 'draft',
-      squadIds: []
-    };
+    // Validate that match date is not in the future
+    const selectedDate = new Date(matchDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+    selectedDate.setHours(0, 0, 0, 0);
 
-    setMatches([...matches, newMatch]);
-    setCurrentMatch(newMatch);
-    setView('select-squad');
+    if (selectedDate > today) {
+      toast.error('Match date cannot be in the future');
+      return;
+    }
 
-    // Reset form
-    setOpponent('');
-    setMatchDate('');
-    setVenue('');
-    setMatchType('Practice match');
-    setResult('No Result');
+    try {
+      const response = await matchService.createMatch({
+        opponent,
+        date: matchDate,
+        venue,
+        matchType,
+        result
+      });
 
-    toast.success('Match created successfully!');
+      const newMatch: Match = {
+        id: response.match.matchID.toString(),
+        opponent: response.match.opponent.opponentName,
+        date: response.match.matchDate,
+        venue: response.match.venue,
+        matchType: response.match.matchType,
+        result,
+        status: 'draft',
+        squadIds: []
+      };
+
+      setMatches([...matches, newMatch]);
+      setCurrentMatch(newMatch);
+      setView('select-squad');
+
+      // Reset form
+      setOpponent('');
+      setMatchDate('');
+      setVenue('');
+      setMatchType('Practice match');
+      setResult('No Result');
+
+      toast.success('Match created successfully!');
+    } catch (error: any) {
+      console.error('Error creating match:', error);
+      toast.error(error.response?.data?.message || 'Failed to create match');
+    }
   };
 
   const togglePlayerSelection = (playerId: string) => {
@@ -208,7 +308,7 @@ export function PlayerStatisticsScreen() {
     }
   };
 
-  const handleConfirmSquad = () => {
+  const handleConfirmSquad = async () => {
     if (selectedPlayerIds.length === 0) {
       toast.error('Please select at least one player');
       return;
@@ -216,19 +316,29 @@ export function PlayerStatisticsScreen() {
 
     if (!currentMatch) return;
 
-    const updatedMatch = {
-      ...currentMatch,
-      status: 'squad-selected' as MatchStatus,
-      squadIds: selectedPlayerIds
-    };
+    try {
+      await matchService.confirmSquad(
+        parseInt(currentMatch.id),
+        selectedPlayerIds.map(id => parseInt(id))
+      );
 
-    setMatches(matches.map(m => m.id === currentMatch.id ? updatedMatch : m));
-    setCurrentMatch(updatedMatch);
-    setView('enter-stats');
-    toast.success(`Squad confirmed with ${selectedPlayerIds.length} players`);
+      const updatedMatch = {
+        ...currentMatch,
+        status: 'squad-selected' as MatchStatus,
+        squadIds: selectedPlayerIds
+      };
+
+      setMatches(matches.map(m => m.id === currentMatch.id ? updatedMatch : m));
+      setCurrentMatch(updatedMatch);
+      setView('enter-stats');
+      toast.success(`Squad confirmed with ${selectedPlayerIds.length} players`);
+    } catch (error: any) {
+      console.error('Error confirming squad:', error);
+      toast.error(error.response?.data?.message || 'Failed to confirm squad');
+    }
   };
 
-  const handleSavePlayerStats = () => {
+  const handleSavePlayerStats = async () => {
     if (!currentMatch || !currentStatPlayerId) return;
 
     const player = realPlayers.find(p => p.id === currentStatPlayerId);
@@ -264,8 +374,34 @@ export function PlayerStatisticsScreen() {
       [matchStatsKey]: updatedStats
     });
 
-    // Update player's overall stats by aggregating all match stats
-    updatePlayerOverallStats(currentStatPlayerId, updatedStats, matchStatsKey);
+    // Save to backend - collect all stats for this match
+    try {
+      const allPlayerStats = updatedStats.map(s => ({
+        playerId: parseInt(s.playerId),
+        runs: s.runs,
+        wickets: s.wickets,
+        stumps: s.stumps,
+        oversBowled: s.oversBowled,
+        runsConceded: s.runsConceded,
+        sixes: s.sixes,
+        fours: s.fours,
+        catches: s.catches,
+        isOut: s.isOut
+      }));
+
+      await matchService.updateMatchStats(
+        parseInt(currentMatch.id),
+        allPlayerStats,
+        result
+      );
+
+      // Update player's overall stats by aggregating all match stats
+      updatePlayerOverallStats(currentStatPlayerId, updatedStats, matchStatsKey);
+    } catch (error: any) {
+      console.error('Error saving stats:', error);
+      toast.error(error.response?.data?.message || 'Failed to save statistics');
+      return;
+    }
 
     // Reset form
     setRuns('');
@@ -339,11 +475,18 @@ export function PlayerStatisticsScreen() {
     setPlayers(updatedPlayers);
   };
 
-  const filteredPlayers = realPlayers.filter(player =>
-    player.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPlayers = Array.isArray(realPlayers)
+    ? realPlayers.filter(player => player.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : [];
 
-  const squadPlayers = currentMatch?.squadIds.map(id => realPlayers.find(p => p.id === id)).filter(Boolean) || [];
+  // Ensure squadIds is an array before mapping
+  const squadIds = currentMatch?.squadIds
+    ? (Array.isArray(currentMatch.squadIds) ? currentMatch.squadIds : [])
+    : [];
+
+  const squadPlayers = squadIds.length > 0 && Array.isArray(realPlayers)
+    ? squadIds.map(id => realPlayers.find(p => p.id == id)).filter(Boolean) // Use loose equality for type coercion
+    : [];
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -426,7 +569,11 @@ export function PlayerStatisticsScreen() {
                             }
                           }}
                         >
-                          {match.status === 'draft' ? 'Select Squad' : 'Enter Stats'}
+                          {match.status === 'draft'
+                            ? 'Select Squad'
+                            : match.status === 'completed'
+                              ? 'View Stats'
+                              : 'Enter Stats'}
                           <ChevronRight className="w-4 h-4 ml-2" />
                         </Button>
                       </div>
@@ -665,11 +812,17 @@ export function PlayerStatisticsScreen() {
                   </div>
                   {currentMatch.status !== 'completed' && (
                     <Button
-                      onClick={() => {
-                        const updatedMatch = { ...currentMatch, status: 'completed' as MatchStatus };
-                        setMatches(matches.map(m => m.id === currentMatch.id ? updatedMatch : m));
-                        setCurrentMatch(updatedMatch);
-                        toast.success('Match marked as completed!');
+                      onClick={async () => {
+                        try {
+                          await matchService.completeMatch(parseInt(currentMatch.id));
+                          const updatedMatch = { ...currentMatch, status: 'completed' as MatchStatus };
+                          setMatches(matches.map(m => m.id === currentMatch.id ? updatedMatch : m));
+                          setCurrentMatch(updatedMatch);
+                          toast.success('Match marked as completed!');
+                        } catch (error: any) {
+                          console.error('Error completing match:', error);
+                          toast.error(error.response?.data?.message || 'Failed to complete match');
+                        }
                       }}
                       className="bg-success hover:bg-success/90 text-success-foreground"
                     >

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { CoachSidebar } from './CoachSidebar';
 import { AdminSidebar } from './AdminSidebar';
 import { Card } from './ui/card';
@@ -12,7 +11,6 @@ import userService from '../services/userService';
 import { toast } from 'sonner';
 
 export function PlayerManagement() {
-  const navigate = useNavigate();
   const { user } = useApp();
   const [players, setPlayers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -95,8 +93,12 @@ export function PlayerManagement() {
                     <th className="text-left py-3 px-4 text-muted-foreground">Player</th>
                     <th className="text-left py-3 px-4 text-muted-foreground">Age</th>
                     <th className="text-left py-3 px-4 text-muted-foreground">Role</th>
-                    <th className="text-left py-3 px-4 text-muted-foreground">Matches</th>
-                    <th className="text-left py-3 px-4 text-muted-foreground">Action</th>
+                    {user?.role !== 'admin' && (
+                      <>
+                        <th className="text-left py-3 px-4 text-muted-foreground">Matches</th>
+                        <th className="text-left py-3 px-4 text-muted-foreground">Action</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -114,19 +116,21 @@ export function PlayerManagement() {
                       </td>
                       <td className="py-4 px-4">{player.age}</td>
                       <td className="py-4 px-4">{player.role}</td>
-                      <td className="py-4 px-4">{player.stats.matches}</td>
-                      <td className="py-4 px-4">
-                        {user?.role !== 'admin' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                            onClick={() => navigate(`/${user?.role}/player-profile?id=${player.id}`)}
-                          >
-                            View Profile
-                          </Button>
-                        )}
-                      </td>
+                      {user?.role !== 'admin' && (
+                        <>
+                          <td className="py-4 px-4">{player.stats.matches}</td>
+                          <td className="py-4 px-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                              onClick={() => window.location.href = `/${user?.role}/player-profile?id=${player.id}`}
+                            >
+                              View Profile
+                            </Button>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>

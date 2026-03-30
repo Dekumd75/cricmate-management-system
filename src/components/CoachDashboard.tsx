@@ -18,7 +18,7 @@ interface PendingParent {
 
 export function CoachDashboard() {
   const navigate = useNavigate();
-  const { players, payments, matches } = useApp();
+  const { players, payments, matches, setMatches } = useApp();
   const [pendingParents, setPendingParents] = useState<PendingParent[]>([]);
   const [loadingParents, setLoadingParents] = useState(true);
 
@@ -41,6 +41,34 @@ export function CoachDashboard() {
 
     fetchPendingParents();
   }, []);
+
+  // Fetch matches from database
+  useEffect(() => {
+    const fetchMatches = async () => {
+      try {
+        const matchService = await import('../services/matchService');
+        const fetchedMatches = await matchService.default.getAllMatches();
+        // Transform backend matches to frontend format
+        const transformedMatches = fetchedMatches.map((match: any) => ({
+          id: match.matchID.toString(),
+          opponent: match.opponent?.opponentName || 'Unknown',
+          date: match.matchDate,
+          venue: match.venue,
+          matchType: match.matchType,
+          result: match.result,
+          status: match.status === 'completed' ? 'completed' :
+            match.status === 'squad-confirmed' ? 'squad-selected' :
+              'draft',
+          squadIds: match.squadIds || []
+        }));
+        setMatches(transformedMatches);
+      } catch (error) {
+        console.error('Error fetching matches:', error);
+      }
+    };
+
+    fetchMatches();
+  }, [setMatches]);
 
   const handleApproveParent = async (parentId: number, parentName: string) => {
     try {

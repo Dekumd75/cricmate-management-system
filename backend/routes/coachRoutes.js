@@ -1,5 +1,5 @@
 const express = require('express');
-const { User, AuditLog, PlayerProfile, InviteCode } = require('../models');
+const { User, AuditLog, PlayerProfile, InviteCode, MatchStats } = require('../models');
 const { authMiddleware, requireCoach } = require('../middleware/authMiddleware');
 const { sendParentApprovalEmail, sendParentRejectionEmail } = require('../services/emailService');
 
@@ -118,10 +118,42 @@ router.get('/players', authMiddleware, requireCoach, async (req, res) => {
             order: [['id', 'DESC']]
         });
 
-        // Format players data
-        const formattedPlayers = players.map(player => {
+        // Format players data with aggregated stats
+        const formattedPlayers = await Promise.all(players.map(async player => {
             const profile = player.playerProfile;
             const age = profile?.dob ? new Date().getFullYear() - new Date(profile.dob).getFullYear() : 0;
+
+            // Aggregate stats from MatchStats table
+            const matchStats = await MatchStats.findAll({
+                where: { playerUserID: player.id },
+                attributes: [
+                    'matchID',
+                    'runsScored',
+                    'ballsFaced',
+                    'wicketsTaken',
+                    'oversBowled',
+                    'runsConceded',
+                    'wasOut'
+                ]
+            });
+
+            // Calculate aggregated statistics
+            const totalMatches = new Set(matchStats.map(stat => stat.matchID)).size;
+            const totalRuns = matchStats.reduce((sum, stat) => sum + (stat.runsScored || 0), 0);
+            const totalBallsFaced = matchStats.reduce((sum, stat) => sum + (stat.ballsFaced || 0), 0);
+            const totalWickets = matchStats.reduce((sum, stat) => sum + (stat.wicketsTaken || 0), 0);
+            const totalOvers = matchStats.reduce((sum, stat) => sum + parseFloat(stat.oversBowled || 0), 0);
+            const totalRunsConceded = matchStats.reduce((sum, stat) => sum + (stat.runsConceded || 0), 0);
+            const timesOut = matchStats.filter(stat => stat.wasOut).length;
+
+            // Calculate batting average (runs / times out, or runs if never out)
+            const battingAverage = timesOut > 0 ? (totalRuns / timesOut).toFixed(2) : totalRuns.toFixed(2);
+
+            // Calculate strike rate ((runs / balls faced) * 100)
+            const strikeRate = totalBallsFaced > 0 ? ((totalRuns / totalBallsFaced) * 100).toFixed(2) : 0;
+
+            // Calculate economy (runs conceded / overs bowled)
+            const economy = totalOvers > 0 ? (totalRunsConceded / totalOvers).toFixed(2) : 0;
 
             return {
                 id: player.id.toString(),
@@ -130,17 +162,17 @@ router.get('/players', authMiddleware, requireCoach, async (req, res) => {
                 role: profile?.playerRole || 'Player',
                 photo: profile?.photoURL || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=200',
                 stats: {
-                    matches: 0,
-                    runs: 0,
-                    wickets: 0,
-                    average: 0,
-                    strikeRate: 0,
-                    economy: 0
+                    matches: totalMatches,
+                    runs: totalRuns,
+                    wickets: totalWickets,
+                    average: parseFloat(battingAverage),
+                    strikeRate: parseFloat(strikeRate),
+                    economy: parseFloat(economy)
                 },
                 inviteCode: 'FSCA-XXXX',
                 parentId: null
             };
-        });
+        }));
 
         res.json({ players: formattedPlayers });
     } catch (error) {

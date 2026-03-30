@@ -29,6 +29,12 @@ const InviteCode = sequelize.define('InviteCode', {
             model: 'playerprofile',
             key: 'playerUserID'
         }
+    },
+    // Records which parent redeemed this code (null = not yet redeemed)
+    parentUserID: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: null
     }
 }, {
     tableName: 'invitecode',
@@ -36,3 +42,4 @@ const InviteCode = sequelize.define('InviteCode', {
 });
 
 module.exports = InviteCode;
+

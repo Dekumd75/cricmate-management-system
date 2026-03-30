@@ -45,6 +45,10 @@ app.use('/api/auth', authLimiter, authRoutes); // Apply rate limiting to auth ro
 app.use('/api/admin', adminRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/player', require('./routes/playerRoutes'));
+app.use('/api/match', require('./routes/matchRoutes'));
+app.use('/api/opponent', require('./routes/opponentRoutes'));
+app.use('/api/attendance', require('./routes/attendanceRoutes'));
+app.use('/api/session', require('./routes/sessionRoutes'));
 
 // Test Database Connection and Sync Models
 sequelize.authenticate()

@@ -41,6 +41,27 @@ class UserService {
         const response = await api.get('/player/profile');
         return response.data.player;
     }
+
+    /**
+     * Get player overall statistics
+     */
+    async getPlayerStats(playerId: number): Promise<any> {
+        const response = await api.get(`/player/${playerId}/stats`);
+        return response.data.stats;
+    }
+
+    /**
+     * Update player profile
+     */
+    async updatePlayerProfile(profileData: {
+        battingStyle?: string;
+        bowlingStyle?: string;
+        playerRole?: string;
+        photoURL?: string;
+    }): Promise<any> {
+        const response = await api.put('/player/profile/update', profileData);
+        return response.data;
+    }
 }
 
 export default new UserService();
