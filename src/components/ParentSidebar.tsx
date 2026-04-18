@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   CreditCard,
   MessageSquare,
+  Bell,
   Settings,
   LogOut
 } from 'lucide-react';
@@ -13,6 +14,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/parent/dashboard' },
   { icon: CreditCard, label: 'My Payments', path: '/parent/payments' },
   { icon: MessageSquare, label: 'Messages', path: '/parent/messages' },
+  { icon: Bell, label: 'Notifications', path: '/parent/notifications' },
   { icon: Settings, label: 'Settings', path: '/parent/settings' },
 ];
 

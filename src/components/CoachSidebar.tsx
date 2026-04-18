@@ -9,7 +9,8 @@ import {
   Settings,
   LogOut,
   BarChart3,
-  DollarSign
+  DollarSign,
+  Bell
 } from 'lucide-react';
 import { useApp } from './AppContext';
 import authService from '../services/authService';
@@ -22,6 +23,7 @@ const menuItems = [
   { icon: Trophy, label: 'AI Best XI', path: '/coach/best-xi' },
   { icon: DollarSign, label: 'Payments', path: '/coach/payments' },
   { icon: FileText, label: 'Generate Reports', path: '/coach/reports' },
+  { icon: Bell, label: 'Notifications', path: '/coach/notifications' },
   { icon: MessageSquare, label: 'Messages', path: '/coach/messages' },
   { icon: Settings, label: 'Settings', path: '/coach/settings' },
 ];

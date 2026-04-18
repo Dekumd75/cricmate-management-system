@@ -5,7 +5,8 @@ import {
   FileText,
   Settings,
   LogOut,
-  UserCog
+  UserCog,
+  Bell
 } from 'lucide-react';
 import { useApp } from './AppContext';
 import authService from '../services/authService';
@@ -15,6 +16,7 @@ const menuItems = [
   { icon: UserCog, label: 'User Management', path: '/admin/user-management' },
   { icon: Users, label: 'Player Management', path: '/admin/players' },
   { icon: FileText, label: 'Reports', path: '/admin/reports' },
+  { icon: Bell, label: 'Notifications', path: '/admin/notifications' },
   { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 

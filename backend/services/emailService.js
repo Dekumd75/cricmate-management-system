@@ -475,6 +475,67 @@ const sendPaymentConfirmationEmail = async (email, recipientName, playerName, am
     }
 };
 
+/**
+ * Send a broadcast notification email (from coach or admin to users)
+ */
+const sendBroadcastEmail = async (email, recipientName, subject, message, senderName, senderRole) => {
+    try {
+        const transporter = createTransporter();
+        const roleLabel = senderRole === 'admin' ? 'Administration' : 'Coach';
+        const mailOptions = {
+            from: process.env.EMAIL_FROM || 'CricMate <noreply@cricmate.com>',
+            to: email,
+            subject: `📢 CricMate - ${subject || 'New Announcement'}`,
+            html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                        .header { background: linear-gradient(135deg, #1e40af, #3b82f6); color: white; padding: 24px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                        .header h1 { margin: 0; font-size: 24px; }
+                        .badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-top: 6px; }
+                        .content { background-color: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }
+                        .greeting { font-size: 16px; color: #374151; }
+                        .message-box { background: #fff; border-left: 4px solid #3b82f6; padding: 16px 20px; margin: 20px 0; border-radius: 0 8px 8px 0; font-size: 15px; color: #1f2937; line-height: 1.7; }
+                        .sender-info { margin-top: 24px; padding: 12px; background: #eff6ff; border-radius: 8px; font-size: 13px; color: #6b7280; }
+                        .footer { background-color: #f3f4f6; padding: 16px 20px; text-align: center; font-size: 12px; color: #9ca3af; border-radius: 0 0 8px 8px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>🏏 CricMate</h1>
+                            <div class="badge">📢 ${roleLabel} Announcement</div>
+                        </div>
+                        <div class="content">
+                            <p class="greeting">Hello <strong>${recipientName}</strong>,</p>
+                            <p>You have received a new notification from the CricMate ${roleLabel}:</p>
+                            <div class="message-box">${message}</div>
+                            <div class="sender-info">
+                                📩 Sent by: <strong>${senderName}</strong> (${roleLabel})
+                                &nbsp;&nbsp;•&nbsp;&nbsp; ${new Date().toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })}
+                            </div>
+                        </div>
+                        <div class="footer">
+                            <p>This is an automated notification from CricMate. Please do not reply.</p>
+                            <p>&copy; 2024 CricMate. All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `
+        };
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Broadcast email sent to ${email}:`, info.messageId);
+        return { success: true, messageId: info.messageId };
+    } catch (error) {
+        console.error('Error sending broadcast email to', email, ':', error.message);
+        return { success: false, error: error.message };
+    }
+};
+
 module.exports = {
     sendPasswordResetEmail,
     testEmailConnection,
@@ -483,5 +544,6 @@ module.exports = {
     sendParentRejectionEmail,
     sendPaymentReminderEmail,
     sendPaymentOverdueEmail,
-    sendPaymentConfirmationEmail
+    sendPaymentConfirmationEmail,
+    sendBroadcastEmail
 };

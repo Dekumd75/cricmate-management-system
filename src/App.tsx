@@ -30,6 +30,12 @@ import { PaymentGatewayScreen } from "./components/PaymentGatewayScreen";
 import { PlayerStatisticsScreen } from "./components/PlayerStatisticsScreen";
 import { CoachPaymentsScreen } from "./components/CoachPaymentsScreen";
 import { PlayerPaymentsScreen } from "./components/PlayerPaymentsScreen";
+import { NotificationsScreen } from "./components/NotificationsScreen";
+import { MyNotificationsScreen } from "./components/MyNotificationsScreen";
+import { AdminSidebar } from "./components/AdminSidebar";
+import { CoachSidebar } from "./components/CoachSidebar";
+import { PlayerSidebar } from "./components/PlayerSidebar";
+import { ParentSidebar } from "./components/ParentSidebar";
 import { Toaster } from "./components/ui/sonner";
 
 export default function App() {
@@ -91,6 +97,17 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <SettingsScreen />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/notifications"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <div className="flex min-h-screen bg-background">
+                  <AdminSidebar />
+                  <NotificationsScreen />
+                </div>
               </ProtectedRoute>
             }
           />
@@ -176,6 +193,17 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/coach/notifications"
+            element={
+              <ProtectedRoute allowedRoles={['coach']}>
+                <div className="flex min-h-screen bg-background">
+                  <CoachSidebar />
+                  <NotificationsScreen />
+                </div>
+              </ProtectedRoute>
+            }
+          />
 
           {/* Player Routes - Protected */}
           <Route
@@ -191,6 +219,17 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['player']}>
                 <PlayerPaymentsScreen />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/player/notifications"
+            element={
+              <ProtectedRoute allowedRoles={['player']}>
+                <div className="flex min-h-screen bg-background">
+                  <PlayerSidebar />
+                  <MyNotificationsScreen />
+                </div>
               </ProtectedRoute>
             }
           />
@@ -241,6 +280,17 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['parent']}>
                 <PaymentGatewayScreen />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/parent/notifications"
+            element={
+              <ProtectedRoute allowedRoles={['parent']}>
+                <div className="flex min-h-screen bg-background">
+                  <ParentSidebar />
+                  <MyNotificationsScreen />
+                </div>
               </ProtectedRoute>
             }
           />

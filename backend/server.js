@@ -52,6 +52,7 @@ app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/session', require('./routes/sessionRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 // Test Database Connection and Sync Models
 sequelize.authenticate()
