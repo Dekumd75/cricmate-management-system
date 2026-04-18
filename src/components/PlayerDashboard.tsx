@@ -1,14 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { PlayerSidebar } from './PlayerSidebar';
 import { Card } from './ui/card';
-import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
 import {
-  TrendingUp, Target, Award, DollarSign,
-  CheckCircle2, XCircle, Clock, Wifi
+  TrendingUp, Target, Award,
+  CheckCircle2, XCircle, Clock, Wifi, CreditCard, AlertTriangle
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar,
@@ -17,6 +15,7 @@ import {
 import userService from '../services/userService';
 import api from '../services/api';
 import { toast } from 'sonner';
+import { PaymentPanel } from './PaymentPanel';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -52,18 +51,54 @@ interface AttendanceRecord {
   checkOutTime?: string;
 }
 
-const paymentData = [
-  { month: 'November 2025', amount: 3000, status: 'Pending', date: '', dueDate: '2025-11-15' },
-  { month: 'October 2025', amount: 3000, status: 'Paid', date: '2025-10-01', dueDate: '2025-10-15' },
-  { month: 'September 2025', amount: 3000, status: 'Paid', date: '2025-09-01', dueDate: '2025-09-15' },
-  { month: 'August 2025', amount: 3000, status: 'Paid', date: '2025-08-01', dueDate: '2025-08-15' },
-  { month: 'July 2025', amount: 3000, status: 'Paid', date: '2025-07-01', dueDate: '2025-07-15' },
-];
+// ─── Payment Summary Banner ────────────────────────────────────────────────
+function PaymentSummaryBanner({ playerId }: { playerId?: string }) {
+  const [fee, setFee] = useState<any>(null);
+
+  useEffect(() => {
+    if (!playerId) return;
+    api.get('/payments/fees/player')
+      .then(res => {
+        const fees: any[] = res.data.fees || [];
+        const now = new Date();
+        const currentFee = fees.find(
+          f => f.month === now.getMonth() + 1 && f.year === now.getFullYear()
+        ) || fees[0];
+        setFee(currentFee || null);
+      })
+      .catch(() => {});
+  }, [playerId]);
+
+  if (!fee) return null;
+
+  const statusConfig: Record<string, { color: string; bg: string; label: string; icon: React.ReactNode }> = {
+    paid:    { color: 'text-success',     bg: 'bg-success/10',     label: 'Paid',    icon: <CheckCircle2 className="w-4 h-4" /> },
+    pending: { color: 'text-warning',     bg: 'bg-warning/10',     label: 'Pending', icon: <Clock className="w-4 h-4" /> },
+    overdue: { color: 'text-destructive', bg: 'bg-destructive/10', label: 'Overdue', icon: <AlertTriangle className="w-4 h-4" /> },
+  };
+  const cfg = statusConfig[fee.status] || statusConfig.pending;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  return (
+    <div className={`flex items-center justify-between p-4 rounded-xl border ${cfg.bg} border-current/20 mt-2`}>
+      <div className="flex items-center gap-3">
+        <CreditCard className={`w-5 h-5 ${cfg.color}`} />
+        <div>
+          <p className="font-medium text-sm">Academy Fee — {months[(fee.month || 1) - 1]} {fee.year}</p>
+          <p className="text-xs text-muted-foreground">LKR {parseFloat(fee.amountDue || 0).toLocaleString()}</p>
+        </div>
+      </div>
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${cfg.bg} ${cfg.color}`}>
+        {cfg.icon}
+        {cfg.label}
+      </span>
+    </div>
+  );
+}
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function PlayerDashboard() {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Player base info
@@ -165,17 +200,7 @@ export function PlayerDashboard() {
   }, [activeTab]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const handlePayment = (payment: any) => {
-    navigate('/player/payment', {
-      state: {
-        payment: {
-          amount: payment.amount,
-          description: `${payment.month} Academy Fee`,
-          playerId: player.id
-        }
-      }
-    });
-  };
+
 
   const formatTime = (time?: string) => {
     if (!time) return '—';
@@ -188,14 +213,14 @@ export function PlayerDashboard() {
   const getAttendanceIcon = (status: string) => {
     if (status === 'present') return <CheckCircle2 className="w-5 h-5 text-success" />;
     if (status === 'absent') return <XCircle className="w-5 h-5 text-destructive" />;
-    if (status === 'early-leave') return <Clock className="w-5 h-5 text-warning" />;
+    if (status === 'early-leave') return <CheckCircle2 className="w-5 h-5 text-success" />;
     return null;
   };
 
   const getAttendanceLabel = (status: string) => {
     if (status === 'present') return 'Present';
     if (status === 'absent') return 'Absent';
-    if (status === 'early-leave') return 'Left Early';
+    if (status === 'early-leave') return 'Present (Early Leave)';
     return status;
   };
 
@@ -222,11 +247,11 @@ export function PlayerDashboard() {
   };
 
   // ── Attendance summary counts ─────────────────────────────────────────────
-  const presentCount = attendanceRecords.filter(r => r.status === 'present').length;
+  const presentCount = attendanceRecords.filter(r => r.status === 'present' || r.status === 'early-leave').length;
   const absentCount = attendanceRecords.filter(r => r.status === 'absent').length;
   const earlyCount = attendanceRecords.filter(r => r.status === 'early-leave').length;
   const attendanceRate = attendanceRecords.length > 0
-    ? Math.round(((presentCount + earlyCount) / attendanceRecords.length) * 100)
+    ? Math.round((presentCount / attendanceRecords.length) * 100)
     : 0;
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -359,6 +384,9 @@ export function PlayerDashboard() {
                       </Card>
                     </div>
                   )}
+
+                  {/* Payment summary banner */}
+                  <PaymentSummaryBanner playerId={player?.id} />
                 </div>
               </TabsContent>
 
@@ -556,60 +584,12 @@ export function PlayerDashboard() {
 
               {/* ── Payments ─────────────────────────────────────────── */}
               <TabsContent value="payments">
-                <div className="space-y-4">
-                  <h3>Payment History</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left py-3 px-4 text-muted-foreground">Month</th>
-                          <th className="text-left py-3 px-4 text-muted-foreground">Amount</th>
-                          <th className="text-left py-3 px-4 text-muted-foreground">Status</th>
-                          <th className="text-left py-3 px-4 text-muted-foreground">Date</th>
-                          <th className="text-left py-3 px-4 text-muted-foreground">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paymentData.map((payment, index) => (
-                          <tr key={index} className="border-b border-border hover:bg-muted/50">
-                            <td className="py-4 px-4">{payment.month}</td>
-                            <td className="py-4 px-4">
-                              <div className="flex items-center gap-2">
-                                <DollarSign className="w-4 h-4 text-muted-foreground" />
-                                LKR {payment.amount.toLocaleString()}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <Badge className={
-                                payment.status === 'Paid'
-                                  ? 'bg-success text-success-foreground'
-                                  : 'bg-warning text-warning-foreground'
-                              }>
-                                {payment.status}
-                              </Badge>
-                            </td>
-                            <td className="py-4 px-4">
-                              {payment.status === 'Paid'
-                                ? new Date(payment.date).toLocaleDateString()
-                                : `Due: ${new Date(payment.dueDate).toLocaleDateString()}`}
-                            </td>
-                            <td className="py-4 px-4">
-                              {payment.status === 'Pending' && (
-                                <Button
-                                  size="sm"
-                                  className="bg-accent hover:bg-accent/90 text-accent-foreground"
-                                  onClick={() => handlePayment(payment)}
-                                >
-                                  Pay Now
-                                </Button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <PaymentPanel
+                  playerId={player?.id}
+                  playerName={player?.name}
+                  role="player"
+                  compact
+                />
               </TabsContent>
             </Tabs>
           </Card>

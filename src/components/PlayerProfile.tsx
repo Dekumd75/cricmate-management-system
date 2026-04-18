@@ -3,14 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from './ui/dialog';
 import { useApp } from './AppContext';
 import { ArrowLeft, CheckCircle, XCircle, Clock, Copy, Eye, Wifi } from 'lucide-react';
@@ -18,6 +12,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { toast } from 'sonner';
 import userService from '../services/userService';
 import api from '../services/api';
+import { PaymentPanel } from './PaymentPanel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,11 +57,9 @@ interface AttendanceRecord {
 export function PlayerProfile() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, payments, setPayments } = useApp();
+  const { user } = useApp();
   const [activeTab, setActiveTab] = useState('overview');
   const [showInviteCodeDialog, setShowInviteCodeDialog] = useState(false);
-  const [manualPaymentAmount, setManualPaymentAmount] = useState('');
-  const [manualPaymentDate, setManualPaymentDate] = useState('');
   const [player, setPlayer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -92,20 +85,14 @@ export function PlayerProfile() {
           const foundPlayer = players.find((p: any) => p.id === playerId || p.id === String(playerId));
           if (foundPlayer) setPlayer(foundPlayer);
         } else if (user?.role === 'parent') {
-          // Step 1: try to find the child in the linked-children list
           const res = await api.get('/auth/linked-children');
           const children: any[] = res.data.children || [];
-          const foundChild = children.find(
-            (c: any) => String(c.id) === String(playerId)
-          );
+          const foundChild = children.find((c: any) => String(c.id) === String(playerId));
           if (foundChild) {
             setPlayer(foundChild);
           } else {
-            // Fallback: fetch player info directly by ID
             const infoRes = await api.get(`/player/${playerId}/info`);
-            if (infoRes.data?.player) {
-              setPlayer(infoRes.data.player);
-            }
+            if (infoRes.data?.player) setPlayer(infoRes.data.player);
           }
         } else if (user?.role === 'player') {
           const profile = await userService.getPlayerProfile();
@@ -118,43 +105,26 @@ export function PlayerProfile() {
         setLoading(false);
       }
     };
-
     fetchPlayerData();
   }, [playerId, user?.role]);
 
-  // ── Fetch player career stats ─────────────────────────────────────────────
+  // ── Fetch career stats ────────────────────────────────────────────────────
   useEffect(() => {
     if (!playerId) return;
-
-    const fetchStats = async () => {
-      try {
-        const response = await api.get(`/player/${playerId}/stats`);
-        setPlayerStats(response.data.stats);
-      } catch (error) {
-        console.error('Failed to fetch player stats:', error);
-      }
-    };
-
-    fetchStats();
+    api.get(`/player/${playerId}/stats`)
+      .then(r => setPlayerStats(r.data.stats))
+      .catch(() => {});
   }, [playerId]);
 
-  // ── Fetch match history for charts ───────────────────────────────────────
+  // ── Fetch match history ───────────────────────────────────────────────────
   useEffect(() => {
     if (!playerId) return;
-
-    const fetchHistory = async () => {
-      try {
-        const response = await api.get(`/player/${playerId}/match-history`);
-        setMatchHistory(response.data.history || []);
-      } catch (error) {
-        console.error('Failed to fetch match history:', error);
-      }
-    };
-
-    fetchHistory();
+    api.get(`/player/${playerId}/match-history`)
+      .then(r => setMatchHistory(r.data.history || []))
+      .catch(() => {});
   }, [playerId]);
 
-  // ── Fetch & poll attendance every 10 seconds ─────────────────────────────
+  // ── Fetch & poll attendance every 10s ────────────────────────────────────
   const fetchAttendance = async () => {
     if (!playerId) return;
     try {
@@ -162,43 +132,26 @@ export function PlayerProfile() {
       setAttendanceRecords(response.data.records || []);
       setLastRefreshed(new Date());
       setIsLive(true);
-    } catch (error) {
-      console.error('Failed to fetch attendance:', error);
+    } catch {
       setIsLive(false);
     }
   };
 
   useEffect(() => {
     if (!playerId) return;
-
     fetchAttendance();
-
-    // Poll every 10 seconds
     pollIntervalRef.current = setInterval(fetchAttendance, 10000);
-
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-    };
+    return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerId]);
 
-  // ── Re-fetch stats when switching to Performance / Overview tabs ──────────
+  // ── Re-fetch on tab switch ────────────────────────────────────────────────
   useEffect(() => {
     if ((activeTab === 'overview' || activeTab === 'performance') && playerId) {
-      api.get(`/player/${playerId}/stats`)
-        .then(r => setPlayerStats(r.data.stats))
-        .catch(() => {});
-
-      api.get(`/player/${playerId}/match-history`)
-        .then(r => setMatchHistory(r.data.history || []))
-        .catch(() => {});
+      api.get(`/player/${playerId}/stats`).then(r => setPlayerStats(r.data.stats)).catch(() => {});
+      api.get(`/player/${playerId}/match-history`).then(r => setMatchHistory(r.data.history || [])).catch(() => {});
     }
-
-    if (activeTab === 'attendance') {
-      fetchAttendance();
-    }
+    if (activeTab === 'attendance') fetchAttendance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -208,25 +161,6 @@ export function PlayerProfile() {
       navigator.clipboard.writeText(player.inviteCode);
       toast.success('Invite code copied to clipboard!');
     }
-  };
-
-  const handleManualPayment = () => {
-    if (!manualPaymentAmount || !manualPaymentDate) {
-      toast.error('Please fill in all payment fields');
-      return;
-    }
-    const newPayment = {
-      id: `payment-${Date.now()}`,
-      playerId: player.id,
-      playerName: player.name,
-      amount: parseFloat(manualPaymentAmount),
-      dueDate: manualPaymentDate,
-      status: 'paid' as const,
-    };
-    setPayments([...payments, newPayment]);
-    setManualPaymentAmount('');
-    setManualPaymentDate('');
-    toast.success('Payment recorded successfully!');
   };
 
   const formatTime = (time?: string) => {
@@ -245,14 +179,10 @@ export function PlayerProfile() {
     wickets: m.wickets,
   }));
 
-  const recentScores = [...matchHistory]
-    .slice(-6)
-    .map((m, i) => ({
-      match: m.opponent ? `vs ${m.opponent}` : `Match ${i + 1}`,
-      score: m.runs,
-    }));
-
-  const playerPayments = payments.filter(p => p.playerId === player?.id);
+  const recentScores = [...matchHistory].slice(-6).map((m, i) => ({
+    match: m.opponent ? `vs ${m.opponent}` : `Match ${i + 1}`,
+    score: m.runs,
+  }));
 
   const stats = playerStats ?? {
     matches: player?.stats?.matches ?? 0,
@@ -261,9 +191,7 @@ export function PlayerProfile() {
     average: player?.stats?.average ?? 0,
     strikeRate: player?.stats?.strikeRate ?? 0,
     economy: player?.stats?.economy ?? 0,
-    catches: 0,
-    fours: 0,
-    sixes: 0,
+    catches: 0, fours: 0, sixes: 0,
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -313,15 +241,11 @@ export function PlayerProfile() {
             />
             <div className="flex-1">
               <h1>{player.name}</h1>
-              <p className="text-muted-foreground">
-                Age {player.age} • {player.role}
-              </p>
-
+              <p className="text-muted-foreground">Age {player.age} • {player.role}</p>
               {user?.role === 'coach' && player.inviteCode && (
                 <div className="mt-3">
                   <Button
-                    variant="outline"
-                    size="sm"
+                    variant="outline" size="sm"
                     onClick={() => setShowInviteCodeDialog(true)}
                     className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                   >
@@ -331,7 +255,6 @@ export function PlayerProfile() {
                 </div>
               )}
             </div>
-
             {/* Quick stat pills */}
             <div className="hidden md:flex gap-4 text-center">
               <div className="bg-primary/5 rounded-xl px-4 py-2">
@@ -388,8 +311,6 @@ export function PlayerProfile() {
                   ))}
                 </div>
               </Card>
-
-              {/* Extra stats row */}
               {playerStats && (
                 <Card className="p-6">
                   <h3 className="mb-4">Batting Breakdown</h3>
@@ -418,9 +339,7 @@ export function PlayerProfile() {
               <Card className="p-6">
                 <h3 className="mb-6">Runs Per Match</h3>
                 {performanceData.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    No match data available yet
-                  </div>
+                  <div className="text-center py-12 text-muted-foreground">No match data available yet</div>
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={performanceData}>
@@ -428,25 +347,15 @@ export function PlayerProfile() {
                       <XAxis dataKey="match" tick={{ fontSize: 12 }} />
                       <YAxis />
                       <Tooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="runs"
-                        stroke="#1e3a8a"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
-                      />
+                      <Line type="monotone" dataKey="runs" stroke="#1e3a8a" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 )}
               </Card>
-
               <Card className="p-6">
                 <h3 className="mb-6">Recent Scores (Last 6 Matches)</h3>
                 {recentScores.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    No match data available yet
-                  </div>
+                  <div className="text-center py-12 text-muted-foreground">No match data available yet</div>
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={recentScores}>
@@ -459,8 +368,6 @@ export function PlayerProfile() {
                   </ResponsiveContainer>
                 )}
               </Card>
-
-              {/* Per-match breakdown table */}
               {matchHistory.length > 0 && (
                 <Card className="p-6">
                   <h3 className="mb-4">Match-by-Match Breakdown</h3>
@@ -481,11 +388,7 @@ export function PlayerProfile() {
                           <tr key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                             <td className="py-3 pr-4">
                               <p className="font-medium">vs {m.opponent}</p>
-                              {m.date && (
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(m.date).toLocaleDateString()}
-                                </p>
-                              )}
+                              {m.date && <p className="text-xs text-muted-foreground">{new Date(m.date).toLocaleDateString()}</p>}
                             </td>
                             <td className="text-center py-3 font-semibold">{m.runs}</td>
                             <td className="text-center py-3">{m.wickets}</td>
@@ -497,9 +400,7 @@ export function PlayerProfile() {
                                   m.result === 'Won' ? 'bg-success/10 text-success' :
                                   m.result === 'Lost' ? 'bg-destructive/10 text-destructive' :
                                   'bg-muted text-muted-foreground'
-                                }`}>
-                                  {m.result}
-                                </span>
+                                }`}>{m.result}</span>
                               ) : '—'}
                             </td>
                           </tr>
@@ -515,14 +416,11 @@ export function PlayerProfile() {
           {/* ── Attendance Tab ─────────────────────────────────────────────── */}
           <TabsContent value="attendance">
             <Card className="p-6">
-              {/* Header with live indicator */}
               <div className="flex items-center justify-between mb-6">
                 <h3>Attendance History</h3>
                 <div className="flex items-center gap-3">
                   {lastRefreshed && (
-                    <p className="text-xs text-muted-foreground">
-                      Refreshed {lastRefreshed.toLocaleTimeString()}
-                    </p>
+                    <p className="text-xs text-muted-foreground">Refreshed {lastRefreshed.toLocaleTimeString()}</p>
                   )}
                   {isLive && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-success/10 text-success border border-success/20">
@@ -532,36 +430,24 @@ export function PlayerProfile() {
                   )}
                 </div>
               </div>
-
-              {/* Summary row */}
               {attendanceRecords.length > 0 && (
                 <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-muted/30 rounded-xl">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-success">
-                      {attendanceRecords.filter(r => r.status === 'present').length}
-                    </p>
+                    <p className="text-2xl font-bold text-success">{attendanceRecords.filter(r => r.status === 'present').length}</p>
                     <p className="text-xs text-muted-foreground">Present</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-destructive">
-                      {attendanceRecords.filter(r => r.status === 'absent').length}
-                    </p>
+                    <p className="text-2xl font-bold text-destructive">{attendanceRecords.filter(r => r.status === 'absent').length}</p>
                     <p className="text-xs text-muted-foreground">Absent</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-warning">
-                      {attendanceRecords.filter(r => r.status === 'early-leave').length}
-                    </p>
+                    <p className="text-2xl font-bold text-warning">{attendanceRecords.filter(r => r.status === 'early-leave').length}</p>
                     <p className="text-xs text-muted-foreground">Left Early</p>
                   </div>
                 </div>
               )}
-
-              {/* Records list */}
               {attendanceRecords.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  No attendance records found
-                </div>
+                <div className="text-center py-12 text-muted-foreground">No attendance records found</div>
               ) : (
                 <div className="space-y-3">
                   {attendanceRecords.map((record) => (
@@ -581,33 +467,33 @@ export function PlayerProfile() {
                           </div>
                         )}
                         {record.status === 'early-leave' && (
-                          <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
-                            <Clock className="w-5 h-5 text-warning" />
+                          <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                            <CheckCircle className="w-5 h-5 text-success" />
                           </div>
                         )}
                         <div>
                           <p className="font-medium">
                             {new Date(record.attendanceDate).toLocaleDateString('en-US', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
+                              weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
                             })}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {record.status === 'present' && 'Present'}
                             {record.status === 'absent' && 'Absent'}
-                            {record.status === 'early-leave' && 'Left Early'}
+                            {record.status === 'early-leave' && (
+                              <span className="flex items-center gap-1">
+                                Present
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs bg-warning/15 text-warning border border-warning/20">
+                                  <Clock className="w-3 h-3" /> Early Leave
+                                </span>
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-muted-foreground">
-                          Check In: {formatTime(record.checkInTime)}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Check Out: {formatTime(record.checkOutTime)}
-                        </p>
+                        <p className="text-sm text-muted-foreground">Check In: {formatTime(record.checkInTime)}</p>
+                        <p className="text-sm text-muted-foreground">Check Out: {formatTime(record.checkOutTime)}</p>
                       </div>
                     </div>
                   ))}
@@ -616,102 +502,14 @@ export function PlayerProfile() {
             </Card>
           </TabsContent>
 
-          {/* ── Payments Tab ───────────────────────────────────────────────── */}
+          {/* ── Payments Tab ─────────────────────────────────────────────────── */}
           <TabsContent value="payments">
-            <div className="space-y-6">
-              {user?.role === 'coach' && (
-                <Card className="p-6 bg-warning/5 border-warning">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="mb-1">Outstanding Fee for the Month</h3>
-                      <p className="text-sm text-muted-foreground">Total pending and overdue</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-3xl text-warning">
-                        LKR{' '}
-                        {playerPayments
-                          .filter(p => p.status === 'pending' || p.status === 'overdue')
-                          .reduce((sum, p) => sum + p.amount, 0)
-                          .toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              )}
-
-              {user?.role === 'coach' && (
-                <Card className="p-6">
-                  <h3 className="mb-6">Manual Payment</h3>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="payment-amount">Amount (LKR)</Label>
-                        <Input
-                          id="payment-amount"
-                          type="number"
-                          placeholder="3000"
-                          value={manualPaymentAmount}
-                          onChange={(e) => setManualPaymentAmount(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="payment-date">Payment Date</Label>
-                        <Input
-                          id="payment-date"
-                          type="date"
-                          value={manualPaymentDate}
-                          onChange={(e) => setManualPaymentDate(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <Button onClick={handleManualPayment} className="bg-primary hover:bg-primary/90">
-                      Save Payment
-                    </Button>
-                  </div>
-                </Card>
-              )}
-
-              <Card className="p-6">
-                <h3 className="mb-6">Payment History</h3>
-                <div className="space-y-3">
-                  {playerPayments.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-8">No payment records found</p>
-                  ) : (
-                    playerPayments.map((payment) => (
-                      <div
-                        key={payment.id}
-                        className="flex items-center justify-between p-4 border border-border rounded-lg"
-                      >
-                        <div>
-                          <p>Monthly Training Fee</p>
-                          <p className="text-sm text-muted-foreground">
-                            Due: {new Date(payment.dueDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg mb-1">LKR {payment.amount.toLocaleString()}</p>
-                          {payment.status === 'paid' && (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-success/10 text-success">
-                              <CheckCircle className="w-3 h-3 mr-1" /> Paid
-                            </span>
-                          )}
-                          {payment.status === 'overdue' && (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-destructive/10 text-destructive">
-                              <XCircle className="w-3 h-3 mr-1" /> Overdue
-                            </span>
-                          )}
-                          {payment.status === 'pending' && (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-warning/10 text-warning">
-                              <Clock className="w-3 h-3 mr-1" /> Pending
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Card>
-            </div>
+            <PaymentPanel
+              playerId={playerId}
+              playerName={player?.name}
+              role={(user?.role as any) ?? 'player'}
+              compact
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -728,7 +526,6 @@ export function PlayerProfile() {
               Share this code with the player or their parent to link their account.
             </DialogDescription>
           </DialogHeader>
-
           <div className="py-6">
             <div className="bg-muted rounded-lg p-6 text-center">
               <p className="text-sm text-muted-foreground mb-2">Invite Code</p>
@@ -740,12 +537,8 @@ export function PlayerProfile() {
               </div>
             </div>
           </div>
-
           <div className="flex justify-end">
-            <Button
-              onClick={() => setShowInviteCodeDialog(false)}
-              className="bg-primary hover:bg-primary/90"
-            >
+            <Button onClick={() => setShowInviteCodeDialog(false)} className="bg-primary hover:bg-primary/90">
               Close
             </Button>
           </div>

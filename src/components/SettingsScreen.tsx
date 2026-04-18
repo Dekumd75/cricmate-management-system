@@ -9,14 +9,16 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { useApp } from './AppContext';
-import { Camera, Lock, Mail, Phone, Moon, Sun } from 'lucide-react';
+import { Camera, Lock, Mail, Phone, Moon, Sun, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import authService from '../services/authService';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 export function SettingsScreen() {
   const { user, theme, setTheme, setUser } = useApp();
-  const [profilePhoto, setProfilePhoto] = useState(user?.photo || '');
+  // Load persisted photo from stored user (localStorage)
+  const storedUser = authService.getStoredUser();
+  const [profilePhoto, setProfilePhoto] = useState(storedUser?.photo || user?.photo || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -24,6 +26,9 @@ export function SettingsScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isUpdatingContact, setIsUpdatingContact] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const getSidebar = () => {
     switch (user?.role) {
@@ -40,13 +45,33 @@ export function SettingsScreen() {
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate size (max 2MB for base64 storage)
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('Image too large. Please use an image under 2MB.');
+        return;
+      }
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePhoto(reader.result as string);
-        toast.success('Profile photo updated!');
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        setProfilePhoto(base64);
+        try {
+          await authService.updatePhoto(base64);
+          // Also update global user state
+          if (user) setUser({ ...user, photo: base64 });
+          toast.success('Profile photo updated!');
+        } catch (err) {
+          console.error('Photo upload error:', err);
+          // Even if backend fails, keep local state and localStorage updated
+          const stored = authService.getStoredUser();
+          if (stored) {
+            stored.photo = base64;
+            localStorage.setItem('user', JSON.stringify(stored));
+          }
+          toast.success('Profile photo updated locally!');
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -257,35 +282,71 @@ export function SettingsScreen() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="current-password">Current Password</Label>
-                  <Input
-                    id="current-password"
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="Enter current password"
-                  />
+                  <div className="flex items-center border border-input rounded-md h-9 px-3 focus-within:ring-1 focus-within:ring-ring transition-all">
+                    <input
+                      id="current-password"
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Enter current password"
+                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="ml-2 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                      tabIndex={-1}
+                      aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="new-password">New Password</Label>
-                  <Input
-                    id="new-password"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
-                  />
+                  <div className="flex items-center border border-input rounded-md h-9 px-3 focus-within:ring-1 focus-within:ring-ring transition-all">
+                    <input
+                      id="new-password"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="ml-2 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                      tabIndex={-1}
+                      aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm new password"
-                  />
+                  <div className="flex items-center border border-input rounded-md h-9 px-3 focus-within:ring-1 focus-within:ring-ring transition-all">
+                    <input
+                      id="confirm-password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="ml-2 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                      tabIndex={-1}
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <Button

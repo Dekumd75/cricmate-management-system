@@ -34,10 +34,15 @@ export function AdminDashboard() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [pendingParents, setPendingParents] = useState<PendingParent[]>([]);
-  const [loadingParents, setLoadingParents] = useState(true);
+  const [_loadingParents, setLoadingParents] = useState(true);
+  const [totalParents, setTotalParents] = useState<number>(0);
 
-  // Get all active parents (players with parentId)
-  const totalParents = players.filter(p => p.parentId).length;
+  // Get all active parents — fetch real count from API
+  useEffect(() => {
+    adminService.getUsers('parent')
+      .then((res: any) => setTotalParents((res.users || []).length))
+      .catch(() => setTotalParents(0));
+  }, []);
 
   // Fetch audit logs
   useEffect(() => {

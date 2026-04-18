@@ -6,7 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useApp } from './AppContext';
 import { motion } from 'motion/react';
-import { UserPlus, Mail, Phone, Lock, Key, ArrowLeft, CheckCircle } from 'lucide-react';
+import { UserPlus, Mail, Phone, Lock, Key, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import academyLogo from 'figma:asset/5f0e47ee1de07031fdbf28920fd9d31a3b58bce9.png';
 
@@ -26,6 +26,8 @@ export function ParentRegistrationScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -314,45 +316,63 @@ export function ParentRegistrationScreen() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="password">
-                        Password <span className="text-destructive">*</span>
-                      </Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="password"
-                          type="password"
-                          placeholder="Min. 8 characters"
-                          value={formData.password}
-                          onChange={(e) => handleInputChange('password', e.target.value)}
-                          className={`pl-10 ${errors.password ? 'border-destructive' : ''}`}
-                        />
+                      <div className="space-y-2">
+                        <Label htmlFor="password">
+                          Password <span className="text-destructive">*</span>
+                        </Label>
+                        <div className={`flex items-center border rounded-md h-9 px-3 focus-within:ring-1 focus-within:ring-ring transition-all ${errors.password ? 'border-destructive' : 'border-input'}`}>
+                          <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0 mr-2" />
+                          <input
+                            id="password"
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="Min. 8 characters"
+                            value={formData.password}
+                            onChange={(e) => handleInputChange('password', e.target.value)}
+                            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="ml-2 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                            tabIndex={-1}
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {errors.password && (
+                          <p className="text-sm text-destructive">{errors.password}</p>
+                        )}
                       </div>
-                      {errors.password && (
-                        <p className="text-sm text-destructive">{errors.password}</p>
-                      )}
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="confirmPassword">
-                        Confirm Password <span className="text-destructive">*</span>
-                      </Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="confirmPassword"
-                          type="password"
-                          placeholder="Re-enter password"
-                          value={formData.confirmPassword}
-                          onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                          className={`pl-10 ${errors.confirmPassword ? 'border-destructive' : ''}`}
-                        />
+                      <div className="space-y-2">
+                        <Label htmlFor="confirmPassword">
+                          Confirm Password <span className="text-destructive">*</span>
+                        </Label>
+                        <div className={`flex items-center border rounded-md h-9 px-3 focus-within:ring-1 focus-within:ring-ring transition-all ${errors.confirmPassword ? 'border-destructive' : 'border-input'}`}>
+                          <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0 mr-2" />
+                          <input
+                            id="confirmPassword"
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            placeholder="Re-enter password"
+                            value={formData.confirmPassword}
+                            onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="ml-2 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                            tabIndex={-1}
+                            aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {errors.confirmPassword && (
+                          <p className="text-sm text-destructive">{errors.confirmPassword}</p>
+                        )}
                       </div>
-                      {errors.confirmPassword && (
-                        <p className="text-sm text-destructive">{errors.confirmPassword}</p>
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>

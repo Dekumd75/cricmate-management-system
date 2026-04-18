@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card } from './ui/card';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from 'sonner';
 import academyLogo from '../assets/5f0e47ee1de07031fdbf28920fd9d31a3b58bce9.png';
@@ -29,7 +29,8 @@ export function LoginScreen() {
   const [password, setPassword] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [_error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -162,15 +163,26 @@ export function LoginScreen() {
 
           <div className="space-y-2">
             <Label htmlFor="password" className="text-white/90">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:bg-white/20 transition-all"
-            />
+            <div className="flex items-center bg-white/10 border border-white/20 rounded-md focus-within:border-white/40 focus-within:bg-white/20 transition-all h-9 px-3">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="flex-1 bg-transparent text-white placeholder:text-white/50 text-sm outline-none min-w-0"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="ml-2 text-white/60 hover:text-white transition-colors flex-shrink-0"
+                tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <Button

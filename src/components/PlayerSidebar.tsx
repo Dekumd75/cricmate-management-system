@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   User,
+  DollarSign,
   Settings,
   LogOut
 } from 'lucide-react';
@@ -9,6 +10,7 @@ import authService from '../services/authService';
 
 const menuItems = [
   { icon: User, label: 'My Profile', path: '/player/dashboard' },
+  { icon: DollarSign, label: 'Payments', path: '/player/payments' },
   { icon: Settings, label: 'Settings', path: '/player/settings' },
 ];
 

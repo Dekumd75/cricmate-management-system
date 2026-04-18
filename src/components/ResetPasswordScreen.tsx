@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card } from './ui/card';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from "motion/react";
 import academyLogo from '../assets/5f0e47ee1de07031fdbf28920fd9d31a3b58bce9.png';
 import aerialField from '../assets/3fe1ebf5e8b53a08ffda4409adf0d92c279c4e96.png';
@@ -30,6 +30,8 @@ export function ResetPasswordScreen() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -152,28 +154,50 @@ export function ResetPasswordScreen() {
 
                     <div className="space-y-2">
                         <Label htmlFor="newPassword" className="text-white/90">New Password</Label>
-                        <Input
-                            id="newPassword"
-                            type="password"
-                            placeholder="Enter new password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            required
-                            className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:bg-white/20 transition-all"
-                        />
+                        <div className="flex items-center bg-white/10 border border-white/20 rounded-md h-9 px-3 focus-within:border-white/40 focus-within:bg-white/20 transition-all">
+                            <input
+                                id="newPassword"
+                                type={showNewPassword ? 'text' : 'password'}
+                                placeholder="Enter new password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                required
+                                className="flex-1 bg-transparent text-white placeholder:text-white/50 text-sm outline-none min-w-0"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                className="ml-2 text-white/60 hover:text-white transition-colors flex-shrink-0"
+                                tabIndex={-1}
+                                aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                            >
+                                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="space-y-2">
                         <Label htmlFor="confirmPassword" className="text-white/90">Confirm New Password</Label>
-                        <Input
-                            id="confirmPassword"
-                            type="password"
-                            placeholder="Confirm new password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            required
-                            className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-white/40 focus:bg-white/20 transition-all"
-                        />
+                        <div className="flex items-center bg-white/10 border border-white/20 rounded-md h-9 px-3 focus-within:border-white/40 focus-within:bg-white/20 transition-all">
+                            <input
+                                id="confirmPassword"
+                                type={showConfirmPassword ? 'text' : 'password'}
+                                placeholder="Confirm new password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                                className="flex-1 bg-transparent text-white placeholder:text-white/50 text-sm outline-none min-w-0"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                className="ml-2 text-white/60 hover:text-white transition-colors flex-shrink-0"
+                                tabIndex={-1}
+                                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                            >
+                                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
                     </div>
 
                     <Button

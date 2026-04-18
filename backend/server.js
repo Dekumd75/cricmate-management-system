@@ -7,6 +7,7 @@ const sequelize = require('./config/database');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const coachRoutes = require('./routes/coachRoutes');
+const { startPaymentScheduler } = require('./services/paymentScheduler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -41,7 +42,7 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use('/api/auth', authLimiter, authRoutes); // Apply rate limiting to auth routes
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/player', require('./routes/playerRoutes'));
@@ -49,16 +50,19 @@ app.use('/api/match', require('./routes/matchRoutes'));
 app.use('/api/opponent', require('./routes/opponentRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/session', require('./routes/sessionRoutes'));
+app.use('/api/messages', require('./routes/messageRoutes'));
+app.use('/api/payments', require('./routes/paymentRoutes'));
 
 // Test Database Connection and Sync Models
 sequelize.authenticate()
     .then(() => {
         console.log('Connected to Database');
-        // Sync all models with database
         return sequelize.sync();
     })
     .then(() => {
         console.log('Database models synced');
+        // Start payment scheduler after DB is ready
+        startPaymentScheduler();
     })
     .catch(err => {
         console.error('Unable to connect to the database:', err);

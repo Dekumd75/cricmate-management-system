@@ -8,7 +8,8 @@ import {
   MessageSquare,
   Settings,
   LogOut,
-  BarChart3
+  BarChart3,
+  DollarSign
 } from 'lucide-react';
 import { useApp } from './AppContext';
 import authService from '../services/authService';
@@ -19,6 +20,7 @@ const menuItems = [
   { icon: CalendarCheck, label: 'Mark Attendance', path: '/coach/attendance' },
   { icon: BarChart3, label: 'Player Statistics', path: '/coach/statistics' },
   { icon: Trophy, label: 'AI Best XI', path: '/coach/best-xi' },
+  { icon: DollarSign, label: 'Payments', path: '/coach/payments' },
   { icon: FileText, label: 'Generate Reports', path: '/coach/reports' },
   { icon: MessageSquare, label: 'Messages', path: '/coach/messages' },
   { icon: Settings, label: 'Settings', path: '/coach/settings' },

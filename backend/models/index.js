@@ -11,6 +11,12 @@ const Opponent = require('./Opponent');
 const AttendanceRecord = require('./AttendanceRecord');
 const Session = require('./Session');
 const PlayerGroup = require('./PlayerGroup');
+const Message = require('./Message');
+const Fee = require('./Fee');
+const Payment = require('./Payment');
+const Notification = require('./Notification');
+const NotificationTemplate = require('./NotificationTemplate');
+const ReportLog = require('./ReportLog');
 
 // Define associations
 // Note: AuditLog.userID maps to 'performedBy' column in DB
@@ -165,6 +171,96 @@ Session.hasMany(AttendanceRecord, {
     as: 'attendanceRecords'
 });
 
+// Message associations
+Message.belongsTo(User, {
+    foreignKey: 'senderID',
+    targetKey: 'id',
+    as: 'sender'
+});
+Message.belongsTo(User, {
+    foreignKey: 'receiverID',
+    targetKey: 'id',
+    as: 'receiver'
+});
+User.hasMany(Message, {
+    foreignKey: 'senderID',
+    sourceKey: 'id',
+    as: 'sentMessages'
+});
+User.hasMany(Message, {
+    foreignKey: 'receiverID',
+    sourceKey: 'id',
+    as: 'receivedMessages'
+});
+
+// Fee associations
+Fee.belongsTo(User, {
+    foreignKey: 'playerUserID',
+    targetKey: 'id',
+    as: 'player'
+});
+User.hasMany(Fee, {
+    foreignKey: 'playerUserID',
+    sourceKey: 'id',
+    as: 'fees'
+});
+
+// Payment associations
+Payment.belongsTo(Fee, {
+    foreignKey: 'feeID',
+    targetKey: 'feeID',
+    as: 'fee'
+});
+Fee.hasMany(Payment, {
+    foreignKey: 'feeID',
+    sourceKey: 'feeID',
+    as: 'payments'
+});
+Payment.belongsTo(User, {
+    foreignKey: 'paidBy',
+    targetKey: 'id',
+    as: 'payer'
+});
+User.hasMany(Payment, {
+    foreignKey: 'paidBy',
+    sourceKey: 'id',
+    as: 'madePayments'
+});
+
+// Notification associations
+Notification.belongsTo(User, {
+    foreignKey: 'userID',
+    targetKey: 'id',
+    as: 'recipient'
+});
+User.hasMany(Notification, {
+    foreignKey: 'userID',
+    sourceKey: 'id',
+    as: 'notifications'
+});
+Notification.belongsTo(NotificationTemplate, {
+    foreignKey: 'templateID',
+    targetKey: 'templateID',
+    as: 'template'
+});
+NotificationTemplate.hasMany(Notification, {
+    foreignKey: 'templateID',
+    sourceKey: 'templateID',
+    as: 'notifications'
+});
+
+// ReportLog associations
+ReportLog.belongsTo(User, {
+    foreignKey: 'generatedBy',
+    targetKey: 'id',
+    as: 'generator'
+});
+User.hasMany(ReportLog, {
+    foreignKey: 'generatedBy',
+    sourceKey: 'id',
+    as: 'generatedReports'
+});
+
 // Export all models
 module.exports = {
     User,
@@ -179,5 +275,11 @@ module.exports = {
     Opponent,
     AttendanceRecord,
     Session,
-    PlayerGroup
+    PlayerGroup,
+    Message,
+    Fee,
+    Payment,
+    Notification,
+    NotificationTemplate,
+    ReportLog
 };

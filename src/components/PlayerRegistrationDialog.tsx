@@ -262,8 +262,12 @@ export function PlayerRegistrationDialog({
                   <SelectValue placeholder="Select batting style" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Right Hand">Right Hand</SelectItem>
-                  <SelectItem value="Left Hand">Left Hand</SelectItem>
+                  <SelectItem value="Right Hand Top Order">Right Hand Top Order</SelectItem>
+                  <SelectItem value="Left Hand Top Order">Left Hand Top Order</SelectItem>
+                  <SelectItem value="Right Hand Middle Order">Right Hand Middle Order</SelectItem>
+                  <SelectItem value="Left Hand Middle Order">Left Hand Middle Order</SelectItem>
+                  <SelectItem value="Right Hand Finisher">Right Hand Finisher</SelectItem>
+                  <SelectItem value="Left Hand Finisher">Left Hand Finisher</SelectItem>
                 </SelectContent>
               </Select>
             </div>

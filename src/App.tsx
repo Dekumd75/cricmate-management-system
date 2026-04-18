@@ -28,6 +28,8 @@ import { MessagesScreen } from "./components/MessagesScreen";
 import { SettingsScreen } from "./components/SettingsScreen";
 import { PaymentGatewayScreen } from "./components/PaymentGatewayScreen";
 import { PlayerStatisticsScreen } from "./components/PlayerStatisticsScreen";
+import { CoachPaymentsScreen } from "./components/CoachPaymentsScreen";
+import { PlayerPaymentsScreen } from "./components/PlayerPaymentsScreen";
 import { Toaster } from "./components/ui/sonner";
 
 export default function App() {
@@ -166,6 +168,14 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/coach/payments"
+            element={
+              <ProtectedRoute allowedRoles={['coach']}>
+                <CoachPaymentsScreen />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Player Routes - Protected */}
           <Route
@@ -180,15 +190,7 @@ export default function App() {
             path="/player/payments"
             element={
               <ProtectedRoute allowedRoles={['player']}>
-                <PlayerDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/player/payment"
-            element={
-              <ProtectedRoute allowedRoles={['player']}>
-                <PaymentGatewayScreen />
+                <PlayerPaymentsScreen />
               </ProtectedRoute>
             }
           />

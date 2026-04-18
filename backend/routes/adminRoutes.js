@@ -1,7 +1,8 @@
 const express = require('express');
-const { User, AuditLog, PlayerProfile, InviteCode, LoginAttempt, MatchStats } = require('../models');
+const { User, AuditLog, PlayerProfile, InviteCode, LoginAttempt, MatchStats, Fee, Payment, AttendanceRecord, ReportLog } = require('../models');
 const { authMiddleware, requireAdmin } = require('../middleware/authMiddleware');
 const { sendParentApprovalEmail, sendParentRejectionEmail } = require('../services/emailService');
+const { Op } = require('sequelize');
 
 const router = express.Router();
 
@@ -205,7 +206,15 @@ router.get('/players', authMiddleware, requireAdmin, async (req, res) => {
         // Format players data with aggregated stats
         const formattedPlayers = await Promise.all(players.map(async player => {
             const profile = player.playerProfile;
-            const age = profile?.dob ? new Date().getFullYear() - new Date(profile.dob).getFullYear() : 0;
+            // Accurate age calculation
+        let age = 0;
+        if (profile?.dob) {
+            const today = new Date();
+            const birth = new Date(profile.dob);
+            age = today.getFullYear() - birth.getFullYear();
+            const m = today.getMonth() - birth.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+        }
 
             // Aggregate stats from MatchStats table
             const matchStats = await MatchStats.findAll({
@@ -239,6 +248,12 @@ router.get('/players', authMiddleware, requireAdmin, async (req, res) => {
             // Calculate economy (runs conceded / overs bowled)
             const economy = totalOvers > 0 ? (totalRunsConceded / totalOvers).toFixed(2) : 0;
 
+            // Fetch real invite code for this player
+            const realCode = await InviteCode.findOne({
+                where: { playerUserID: player.id },
+                order: [['codeID', 'DESC']]
+            });
+
             return {
                 id: player.id.toString(),
                 name: player.name,
@@ -253,7 +268,7 @@ router.get('/players', authMiddleware, requireAdmin, async (req, res) => {
                     strikeRate: parseFloat(strikeRate),
                     economy: parseFloat(economy)
                 },
-                inviteCode: 'FSCA-XXXX',
+                inviteCode: realCode?.codeValue || 'No code generated',
                 parentId: null
             };
         }));
@@ -328,13 +343,21 @@ router.get('/pending-parents', authMiddleware, requireAdmin, async (req, res) =>
             attributes: { exclude: ['password'] }
         });
 
-        // Format the response with a valid date (since User model doesn't have timestamps)
-        const formattedParents = pendingParents.map(parent => ({
-            id: parent.id,
-            name: parent.name,
-            email: parent.email,
-            phone: parent.phone,
-            createdAt: new Date().toISOString() // Use current date as fallback
+        // Format the response — use registeredAt column if available, else earliest audit log
+        const sequelize = require('../config/database');
+        const formattedParents = await Promise.all(pendingParents.map(async parent => {
+            // Try to get actual registration time from audit log
+            const regLog = await AuditLog.findOne({
+                where: { action: 'USER_REGISTRATION', entityID: parent.id },
+                order: [['timestamp', 'ASC']]
+            });
+            return {
+                id: parent.id,
+                name: parent.name,
+                email: parent.email,
+                phone: parent.phone,
+                createdAt: regLog ? regLog.timestamp : new Date().toISOString()
+            };
         }));
 
         console.log(`Fetched ${pendingParents.length} pending parents`);
@@ -602,6 +625,283 @@ router.get('/security-logs', authMiddleware, requireAdmin, async (req, res) => {
     } catch (error) {
         console.error('Get security logs error:', error);
         res.status(500).json({ message: 'Server error while fetching security logs' });
+    }
+});
+
+// ============ Report Data Endpoints ============
+
+// Helper: build player stats from DB
+async function getPlayerStatsFromDB() {
+    const players = await User.findAll({
+        where: { role: 'player' },
+        attributes: { exclude: ['password'] },
+        include: [{ model: PlayerProfile, as: 'playerProfile', required: false }],
+        order: [['id', 'ASC']]
+    });
+
+    return Promise.all(players.map(async player => {
+        const profile = player.playerProfile;
+        let age = 0;
+        if (profile?.dob) {
+            const today = new Date();
+            const birth = new Date(profile.dob);
+            age = today.getFullYear() - birth.getFullYear();
+            const m = today.getMonth() - birth.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+        }
+        const matchStats = await MatchStats.findAll({ where: { playerUserID: player.id } });
+        const totalMatches = new Set(matchStats.map(s => s.matchID)).size;
+        const totalRuns = matchStats.reduce((sum, s) => sum + (s.runsScored || 0), 0);
+        const totalBalls = matchStats.reduce((sum, s) => sum + (s.ballsFaced || 0), 0);
+        const totalWickets = matchStats.reduce((sum, s) => sum + (s.wicketsTaken || 0), 0);
+        const totalOvers = matchStats.reduce((sum, s) => sum + parseFloat(s.oversBowled || 0), 0);
+        const totalRunsConceded = matchStats.reduce((sum, s) => sum + (s.runsConceded || 0), 0);
+        const timesOut = matchStats.filter(s => s.wasOut).length;
+        const battingAvg = timesOut > 0 ? (totalRuns / timesOut).toFixed(2) : totalRuns.toFixed(2);
+        const strikeRate = totalBalls > 0 ? ((totalRuns / totalBalls) * 100).toFixed(2) : '0.00';
+        const economy = totalOvers > 0 ? (totalRunsConceded / totalOvers).toFixed(2) : '0.00';
+        return {
+            id: player.id, name: player.name, email: player.email,
+            phone: player.phone || '', age,
+            role: profile?.playerRole || 'Player',
+            battingStyle: profile?.battingStyle || '',
+            bowlingStyle: profile?.bowlingStyle || '',
+            matches: totalMatches, runs: totalRuns, wickets: totalWickets,
+            battingAvg: parseFloat(battingAvg), strikeRate: parseFloat(strikeRate),
+            economy: parseFloat(economy)
+        };
+    }));
+}
+
+// @route   GET /api/admin/reports/players
+router.get('/reports/players', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const data = await getPlayerStatsFromDB();
+        await ReportLog.create({ reportType: 'players', generatedBy: req.user.id, timestamp: new Date() });
+        res.json({ data });
+    } catch (error) {
+        console.error('Report players error:', error);
+        res.status(500).json({ message: 'Error generating players report' });
+    }
+});
+
+// @route   GET /api/admin/reports/coaches
+router.get('/reports/coaches', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const coaches = await User.findAll({
+            where: { role: 'coach', accountStatus: 'active' },
+            attributes: ['id', 'name', 'email', 'phone']
+        });
+        const data = coaches.map(c => ({
+            coachId: c.id, name: c.name, email: c.email,
+            phone: c.phone || 'N/A', status: 'Active'
+        }));
+        await ReportLog.create({ reportType: 'coaches', generatedBy: req.user.id, timestamp: new Date() });
+        res.json({ data });
+    } catch (error) {
+        console.error('Report coaches error:', error);
+        res.status(500).json({ message: 'Error generating coaches report' });
+    }
+});
+
+// @route   GET /api/admin/reports/parents
+router.get('/reports/parents', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const { InviteCode } = require('../models');
+        const parents = await User.findAll({
+            where: { role: 'parent' },
+            attributes: { exclude: ['password'] },
+            order: [['id', 'ASC']]
+        });
+        const data = await Promise.all(parents.map(async parent => {
+            // Find ALL players linked to this parent via redeemed invite codes
+            const linkedCodes = await InviteCode.findAll({
+                where: { parentUserID: parent.id, isUsed: true },
+                include: [{ model: User, as: 'player', attributes: ['name'] }]
+            }).catch(() => []);
+            const childrenNames = linkedCodes
+                .map(code => code.player?.name)
+                .filter(Boolean)
+                .join(', ');
+            return {
+                id: parent.id, name: parent.name, email: parent.email,
+                phone: parent.phone || '', status: parent.accountStatus || 'N/A',
+                linkedChildren: childrenNames || 'Not Linked',
+                totalChildren: linkedCodes.length
+            };
+        }));
+        await ReportLog.create({ reportType: 'parents', generatedBy: req.user.id, timestamp: new Date() });
+        res.json({ data });
+    } catch (error) {
+        console.error('Report parents error:', error);
+        res.status(500).json({ message: 'Error generating parents report' });
+    }
+});
+
+// @route   GET /api/admin/reports/payments
+// Uses real fee + payment tables
+router.get('/reports/payments', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const fees = await Fee.findAll({
+            include: [
+                { model: User, as: 'player', attributes: ['id', 'name', 'email'] },
+                { model: Payment, as: 'payments', required: false }
+            ],
+            order: [['year', 'DESC'], ['month', 'DESC']]
+        });
+
+        const months = ['January','February','March','April','May','June',
+                        'July','August','September','October','November','December'];
+
+        const data = fees.map(fee => {
+            const latestPayment = fee.payments?.sort((a, b) =>
+                new Date(b.paymentDate) - new Date(a.paymentDate))[0];
+            return {
+                feeId: fee.feeID,
+                playerId: fee.playerUserID,
+                playerName: fee.player?.name || 'Unknown',
+                playerEmail: fee.player?.email || '',
+                amount: parseFloat(fee.amountDue),
+                currency: 'LKR',
+                month: months[fee.month - 1] || fee.month,
+                year: fee.year,
+                dueDate: fee.dueDate,
+                status: fee.status,
+                paidOn: latestPayment?.paymentDate || null,
+                paymentMethod: latestPayment?.paymentMethod || null
+            };
+        });
+        await ReportLog.create({ reportType: 'payments', generatedBy: req.user.id, timestamp: new Date() });
+        res.json({ data });
+    } catch (error) {
+        console.error('Report payments error:', error);
+        res.status(500).json({ message: 'Error generating payments report' });
+    }
+});
+
+// @route   GET /api/admin/reports/overdue-payments
+// Uses real fee table — status === 'overdue'
+router.get('/reports/overdue-payments', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const overdueFees = await Fee.findAll({
+            where: { status: 'overdue' },
+            include: [
+                {
+                    model: User, as: 'player',
+                    attributes: ['id', 'name', 'email'],
+                    include: [{ model: PlayerProfile, as: 'playerProfile', required: false }]
+                }
+            ],
+            order: [['year', 'DESC'], ['month', 'DESC']]
+        });
+
+        const today = new Date();
+        const data = overdueFees.map(fee => {
+            const dueDate = new Date(fee.dueDate);
+            const daysOverdue = Math.max(0, Math.floor((today - dueDate) / (1000 * 60 * 60 * 24)));
+            const profile = fee.player?.playerProfile;
+            let age = 0;
+            if (profile?.dob) {
+                const birth = new Date(profile.dob);
+                age = today.getFullYear() - birth.getFullYear();
+                const m = today.getMonth() - birth.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+            }
+            return {
+                feeId: fee.feeID,
+                playerId: fee.playerUserID,
+                playerName: fee.player?.name || 'Unknown',
+                playerEmail: fee.player?.email || '',
+                playerAge: age,
+                amount: parseFloat(fee.amountDue),
+                currency: 'LKR',
+                dueDate: dueDate.toLocaleDateString('en-LK'),
+                daysOverdue,
+                status: 'Overdue'
+            };
+        });
+        await ReportLog.create({ reportType: 'overdue-payments', generatedBy: req.user.id, timestamp: new Date() });
+        res.json({ data });
+    } catch (error) {
+        console.error('Report overdue payments error:', error);
+        res.status(500).json({ message: 'Error generating overdue payments report' });
+    }
+});
+
+// @route   GET /api/admin/reports/attendance
+router.get('/reports/attendance', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const players = await User.findAll({
+            where: { role: 'player' },
+            attributes: ['id', 'name'],
+            include: [{ model: PlayerProfile, as: 'playerProfile', required: false }]
+        });
+        const data = await Promise.all(players.map(async player => {
+            const records = await AttendanceRecord.findAll({ where: { playerUserID: player.id } });
+            const total = records.length;
+            const present = records.filter(r => r.status === 'present').length;
+            const absent = records.filter(r => r.status === 'absent').length;
+            const earlyLeave = records.filter(r => r.status === 'early-leave').length;
+            const rate = total > 0 ? ((present / total) * 100).toFixed(1) : '0.0';
+            const age = player.playerProfile?.dob
+                ? new Date().getFullYear() - new Date(player.playerProfile.dob).getFullYear() : 0;
+            return {
+                playerId: player.id, playerName: player.name, age,
+                role: player.playerProfile?.playerRole || 'Player',
+                totalSessions: total, present, absent, earlyLeave,
+                attendanceRate: rate + '%'
+            };
+        }));
+        await ReportLog.create({ reportType: 'attendance', generatedBy: req.user.id, timestamp: new Date() });
+        res.json({ data });
+    } catch (error) {
+        console.error('Report attendance error:', error);
+        res.status(500).json({ message: 'Error generating attendance report' });
+    }
+});
+
+// @route   GET /api/admin/reports/performance
+router.get('/reports/performance', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const data = await getPlayerStatsFromDB();
+        await ReportLog.create({ reportType: 'performance', generatedBy: req.user.id, timestamp: new Date() });
+        res.json({ data });
+    } catch (error) {
+        console.error('Report performance error:', error);
+        res.status(500).json({ message: 'Error generating performance report' });
+    }
+});
+
+// @route   GET /api/admin/reports/monthly-summary
+router.get('/reports/monthly-summary', authMiddleware, requireAdmin, async (req, res) => {
+    try {
+        const players = await User.findAll({ where: { role: 'player' }, attributes: ['id'] });
+        const coaches = await User.findAll({ where: { role: 'coach' }, attributes: ['id'] });
+        const parentsList = await User.findAll({ where: { role: 'parent' }, attributes: ['id'] });
+        const allAttendance = await AttendanceRecord.findAll();
+        const presentCount = allAttendance.filter(r => r.status === 'present').length;
+        const totalSessions = new Set(allAttendance.map(r => r.sessionID)).size;
+        const months = ['January','February','March','April','May','June',
+                        'July','August','September','October','November','December'];
+        const data = [{
+            reportMonth: `${months[new Date().getMonth()]} ${new Date().getFullYear()}`,
+            generatedAt: new Date().toLocaleString(),
+            totalPlayers: players.length,
+            totalCoaches: coaches.length,
+            totalParents: parentsList.length,
+            totalSessions,
+            totalAttendanceMarked: allAttendance.length,
+            totalPresent: presentCount,
+            overallAttendanceRate: allAttendance.length > 0
+                ? ((presentCount / allAttendance.length) * 100).toFixed(1) + '%' : '0.0%',
+            monthlyFeePerPlayer: 'LKR 3,000',
+            expectedRevenue: `LKR ${(players.length * 3000).toLocaleString()}`,
+        }];
+        await ReportLog.create({ reportType: 'monthly-summary', generatedBy: req.user.id, timestamp: new Date() });
+        res.json({ data });
+    } catch (error) {
+        console.error('Report monthly summary error:', error);
+        res.status(500).json({ message: 'Error generating monthly summary' });
     }
 });
 

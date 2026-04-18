@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { CoachSidebar } from './CoachSidebar';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
-import { Users, CalendarCheck, Siren, UserPlus, Trophy, ChevronRight } from 'lucide-react';
+import { Users, CalendarCheck, UserPlus, Trophy, ChevronRight } from 'lucide-react';
 import { useApp } from './AppContext';
 import { toast } from 'sonner';
 import coachService from '../services/coachService';
@@ -18,12 +18,11 @@ interface PendingParent {
 
 export function CoachDashboard() {
   const navigate = useNavigate();
-  const { players, payments, matches, setMatches } = useApp();
+  const { matches, setMatches } = useApp();
   const [pendingParents, setPendingParents] = useState<PendingParent[]>([]);
-  const [loadingParents, setLoadingParents] = useState(true);
-
-  const overduePayments = payments.filter(p => p.status === 'overdue');
-  const todayAttendance = '18/25'; // Mock data
+  const [_loadingParents, setLoadingParents] = useState(true);
+  const [totalPlayers, setTotalPlayers] = useState<number | null>(null);
+  const [todayAttendance, setTodayAttendance] = useState<{ present: number; total: number } | null>(null);
 
   // Fetch pending parents
   useEffect(() => {
@@ -40,6 +39,20 @@ export function CoachDashboard() {
     };
 
     fetchPendingParents();
+  }, []);
+
+  // Fetch real player count
+  useEffect(() => {
+    coachService.getPlayerCount()
+      .then(count => setTotalPlayers(count))
+      .catch(() => setTotalPlayers(0));
+  }, []);
+
+  // Fetch today's real attendance
+  useEffect(() => {
+    coachService.getTodayAttendance()
+      .then(data => setTodayAttendance(data))
+      .catch(() => setTodayAttendance({ present: 0, total: 0 }));
   }, []);
 
   // Fetch matches from database
@@ -107,7 +120,7 @@ export function CoachDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-muted-foreground text-sm mb-1">Total Players</p>
-                  <h2>{players.length}</h2>
+                  <h2>{totalPlayers === null ? '—' : totalPlayers}</h2>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <Users className="w-6 h-6 text-primary" />
@@ -119,7 +132,13 @@ export function CoachDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-muted-foreground text-sm mb-1">Today's Attendance</p>
-                  <h2>{todayAttendance}</h2>
+                  <h2>
+                    {todayAttendance === null
+                      ? '—'
+                      : todayAttendance.total === 0
+                      ? 'No sessions'
+                      : `${todayAttendance.present} / ${todayAttendance.total}`}
+                  </h2>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
                   <CalendarCheck className="w-6 h-6 text-success" />
@@ -127,17 +146,6 @@ export function CoachDashboard() {
               </div>
             </Card>
 
-            <Card className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm mb-1">Overdue Payments</p>
-                  <h2 className="text-destructive">{overduePayments.length}</h2>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                  <Siren className="w-6 h-6 text-destructive" />
-                </div>
-              </div>
-            </Card>
 
             <Card className="p-6">
               <div className="flex items-center justify-between">
@@ -266,40 +274,6 @@ export function CoachDashboard() {
             )}
           </Card>
 
-          {/* Overdue Payments Table */}
-          <Card className="p-6">
-            <h3 className="mb-6">Overdue Payments</h3>
-            {overduePayments.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-3 px-4 text-muted-foreground">Player Name</th>
-                      <th className="text-left py-3 px-4 text-muted-foreground">Amount</th>
-                      <th className="text-left py-3 px-4 text-muted-foreground">Due Date</th>
-                      <th className="text-left py-3 px-4 text-muted-foreground">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {overduePayments.map((payment) => (
-                      <tr key={payment.id} className="border-b border-border">
-                        <td className="py-4 px-4">{payment.playerName}</td>
-                        <td className="py-4 px-4">LKR {payment.amount.toLocaleString()}</td>
-                        <td className="py-4 px-4">{new Date(payment.dueDate).toLocaleDateString()}</td>
-                        <td className="py-4 px-4">
-                          <Button variant="outline" size="sm" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
-                            Record Payment
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-center py-8">No overdue payments</p>
-            )}
-          </Card>
         </div>
       </div>
     </div>

@@ -292,10 +292,196 @@ const sendParentRejectionEmail = async (email, userName) => {
     }
 };
 
+/**
+ * Send payment reminder email (7 days before due date)
+ */
+const sendPaymentReminderEmail = async (email, recipientName, playerName, amount, dueDate) => {
+    try {
+        const transporter = createTransporter();
+        const dueDateStr = new Date(dueDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        const mailOptions = {
+            from: process.env.EMAIL_FROM || 'CricMate <noreply@cricmate.com>',
+            to: email,
+            subject: `CricMate - Payment Reminder: LKR ${parseFloat(amount).toLocaleString()} due soon`,
+            html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                        .header { background-color: #f59e0b; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+                        .content { background-color: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }
+                        .amount-box { background-color: #fff; border-left: 4px solid #f59e0b; padding: 15px 20px; margin: 20px 0; font-size: 20px; font-weight: bold; }
+                        .footer { background-color: #f3f4f6; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 5px 5px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>🏏 CricMate</h1>
+                            <p>Payment Reminder</p>
+                        </div>
+                        <div class="content">
+                            <p>Hello ${recipientName},</p>
+                            <p>This is a friendly reminder that the monthly academy fee for <strong>${playerName}</strong> is due soon.</p>
+                            <div class="amount-box">
+                                Amount Due: LKR ${parseFloat(amount).toLocaleString()}<br>
+                                <span style="font-size: 14px; font-weight: normal; color: #6b7280;">Due Date: ${dueDateStr}</span>
+                            </div>
+                            <p>Please ensure the payment is made <strong>before or on ${dueDateStr}</strong> to avoid late fees.</p>
+                            <p>You can pay online through the CricMate portal or hand the payment physically to your coach.</p>
+                        </div>
+                        <div class="footer">
+                            <p>This is an automated reminder from CricMate. Please do not reply to this email.</p>
+                            <p>&copy; 2024 CricMate. All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Payment reminder email sent to:', email, info.messageId);
+        return { success: true, messageId: info.messageId };
+    } catch (error) {
+        console.error('Error sending payment reminder email:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Send overdue payment notification email
+ */
+const sendPaymentOverdueEmail = async (email, recipientName, playerName, amount) => {
+    try {
+        const transporter = createTransporter();
+
+        const mailOptions = {
+            from: process.env.EMAIL_FROM || 'CricMate <noreply@cricmate.com>',
+            to: email,
+            subject: `⚠️ CricMate - Payment Overdue: LKR ${parseFloat(amount).toLocaleString()} for ${playerName}`,
+            html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                        .header { background-color: #dc2626; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+                        .content { background-color: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }
+                        .overdue-box { background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 15px 20px; margin: 20px 0; }
+                        .footer { background-color: #f3f4f6; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 5px 5px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>🏏 CricMate</h1>
+                            <p>Payment Overdue</p>
+                        </div>
+                        <div class="content">
+                            <p>Hello ${recipientName},</p>
+                            <div class="overdue-box">
+                                <strong>⚠️ OVERDUE NOTICE</strong><br>
+                                The monthly academy fee of <strong>LKR ${parseFloat(amount).toLocaleString()}</strong> for <strong>${playerName}</strong> is now overdue.
+                            </div>
+                            <p>Please make the payment immediately through the CricMate portal or contact your coach to arrange physical payment.</p>
+                            <p>If you have already made the payment, please ignore this notice or contact your coach to confirm.</p>
+                        </div>
+                        <div class="footer">
+                            <p>This is an automated notice from CricMate. Contact: ${process.env.EMAIL_USER}</p>
+                            <p>&copy; 2024 CricMate. All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Payment overdue email sent to:', email, info.messageId);
+        return { success: true, messageId: info.messageId };
+    } catch (error) {
+        console.error('Error sending overdue email:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Send payment confirmation email
+ */
+const sendPaymentConfirmationEmail = async (email, recipientName, playerName, amount, method, transactionId) => {
+    try {
+        const transporter = createTransporter();
+
+        const mailOptions = {
+            from: process.env.EMAIL_FROM || 'CricMate <noreply@cricmate.com>',
+            to: email,
+            subject: `✅ CricMate - Payment Confirmed: LKR ${parseFloat(amount).toLocaleString()}`,
+            html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                        .header { background-color: #10b981; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+                        .content { background-color: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }
+                        .success-box { background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 15px 20px; margin: 20px 0; }
+                        .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+                        .footer { background-color: #f3f4f6; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 5px 5px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>🏏 CricMate</h1>
+                            <p>Payment Confirmation</p>
+                        </div>
+                        <div class="content">
+                            <div style="text-align:center;font-size:48px;margin:10px 0">✅</div>
+                            <h2 style="text-align:center;color:#10b981">Payment Successful!</h2>
+                            <p>Hello ${recipientName}, your payment has been received. Here are the details:</p>
+                            <div class="success-box">
+                                <table style="width:100%;border-collapse:collapse">
+                                    <tr><td style="padding:6px 0;color:#6b7280">Player</td><td style="padding:6px 0;font-weight:bold">${playerName}</td></tr>
+                                    <tr><td style="padding:6px 0;color:#6b7280">Amount Paid</td><td style="padding:6px 0;font-weight:bold;color:#10b981">LKR ${parseFloat(amount).toLocaleString()}</td></tr>
+                                    <tr><td style="padding:6px 0;color:#6b7280">Method</td><td style="padding:6px 0">${method}</td></tr>
+                                    <tr><td style="padding:6px 0;color:#6b7280">Transaction ID</td><td style="padding:6px 0;font-size:12px;color:#6b7280">${transactionId}</td></tr>
+                                    <tr><td style="padding:6px 0;color:#6b7280">Date</td><td style="padding:6px 0">${new Date().toLocaleDateString('en-LK')}</td></tr>
+                                </table>
+                            </div>
+                            <p>Please keep this email as your payment receipt.</p>
+                        </div>
+                        <div class="footer">
+                            <p>This is an automated confirmation from CricMate.</p>
+                            <p>&copy; 2024 CricMate. All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Payment confirmation email sent to:', email, info.messageId);
+        return { success: true, messageId: info.messageId };
+    } catch (error) {
+        console.error('Error sending payment confirmation email:', error);
+        return { success: false, error: error.message };
+    }
+};
+
 module.exports = {
     sendPasswordResetEmail,
     testEmailConnection,
     sendParentRegistrationNotification,
     sendParentApprovalEmail,
-    sendParentRejectionEmail
+    sendParentRejectionEmail,
+    sendPaymentReminderEmail,
+    sendPaymentOverdueEmail,
+    sendPaymentConfirmationEmail
 };

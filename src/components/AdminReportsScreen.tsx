@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AdminSidebar } from './AdminSidebar';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { useApp } from './AppContext';
-import { Download, FileText, Users, CreditCard, Calendar, UserCheck, TrendingUp } from 'lucide-react';
+import {
+  FileText, Users, CreditCard,
+  UserCheck, TrendingUp, Loader2, FileSpreadsheet
+} from 'lucide-react';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface ReportCard {
   id: string;
@@ -12,231 +18,304 @@ interface ReportCard {
   description: string;
   icon: any;
   category: string;
+  apiEndpoint: string;
+  formats: ('PDF' | 'Excel')[];
+}
+
+const API_URL = 'http://localhost:5000/api';
+
+const getAuthHeaders = () => ({
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+});
+
+const PDF_BRAND_COLOR: [number, number, number] = [34, 197, 94];
+const PDF_HEADER_BG: [number, number, number] = [240, 250, 240];
+
+function buildPDFHeader(doc: jsPDF, title: string, subtitle?: string) {
+  const pageW = doc.internal.pageSize.width;
+
+  // Green header bar
+  doc.setFillColor(...PDF_BRAND_COLOR);
+  doc.rect(0, 0, pageW, 28, 'F');
+
+  // Logo text
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(255, 255, 255);
+  doc.text('🏏 CricMate', 14, 18);
+
+  // Title on right
+  doc.setFontSize(12);
+  doc.text(title, pageW - 14, 12, { align: 'right' });
+  if (subtitle) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(subtitle, pageW - 14, 20, { align: 'right' });
+  }
+
+  // Date line below header
+  doc.setTextColor(100, 100, 100);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 34);
+  doc.setTextColor(0, 0, 0);
+}
+
+function addPDFFooter(doc: jsPDF) {
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  const pageW = doc.internal.pageSize.width;
+  const pageH = doc.internal.pageSize.height;
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFillColor(240, 240, 240);
+    doc.rect(0, pageH - 12, pageW, 12, 'F');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text('CricMate Management System — Confidential', 14, pageH - 4);
+    doc.text(`Page ${i} of ${pageCount}`, pageW - 14, pageH - 4, { align: 'right' });
+  }
+}
+
+function downloadAsExcel(data: any[], filename: string, sheetTitle: string) {
+  if (!data || data.length === 0) {
+    toast.error('No data available to export.');
+    return;
+  }
+  const ws = XLSX.utils.json_to_sheet(data);
+  // Auto-width columns
+  const cols = Object.keys(data[0]).map(key => ({ wch: Math.max(key.length + 2, 18) }));
+  ws['!cols'] = cols;
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetTitle);
+  XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
 export function AdminReportsScreen() {
-  const { players, payments, coaches, parents } = useApp();
+  const { players, payments, coaches } = useApp();
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const reports: ReportCard[] = [
     {
-      id: 'all-payments',
-      title: 'Full Payment Report',
+      id: 'all-payments', title: 'Full Payment Report',
       description: 'Complete list of all payments including pending, paid, and overdue',
-      icon: CreditCard,
-      category: 'Financial'
+      icon: CreditCard, category: 'Financial',
+      apiEndpoint: '/admin/reports/payments',
+      formats: ['PDF', 'Excel']
     },
     {
-      id: 'overdue-payments',
-      title: 'Overdue Payments Report',
-      description: 'List of all overdue payments with parent and player details',
-      icon: TrendingUp,
-      category: 'Financial'
+      id: 'overdue-payments', title: 'Overdue Payments Report',
+      description: 'List of all overdue payments with player details and days overdue',
+      icon: TrendingUp, category: 'Financial',
+      apiEndpoint: '/admin/reports/overdue-payments',
+      formats: ['PDF', 'Excel']
     },
     {
-      id: 'coaches-list',
-      title: 'Coaches List',
+      id: 'coaches-list', title: 'Coaches List',
       description: 'Complete list of all registered coaches with contact information',
-      icon: UserCheck,
-      category: 'Personnel'
+      icon: UserCheck, category: 'Personnel',
+      apiEndpoint: '/admin/reports/coaches',
+      formats: ['PDF', 'Excel']
     },
     {
-      id: 'players-list',
-      title: 'Players List',
+      id: 'players-list', title: 'Players List',
       description: 'Complete list of all registered players with statistics',
-      icon: Users,
-      category: 'Personnel'
+      icon: Users, category: 'Personnel',
+      apiEndpoint: '/admin/reports/players',
+      formats: ['PDF', 'Excel']
     },
     {
-      id: 'parents-list',
-      title: 'Parents List',
+      id: 'parents-list', title: 'Parents List',
       description: 'Complete list of all parents with linked player information',
-      icon: Users,
-      category: 'Personnel'
+      icon: Users, category: 'Personnel',
+      apiEndpoint: '/admin/reports/parents',
+      formats: ['PDF', 'Excel']
     },
     {
-      id: 'attendance-report',
-      title: 'Attendance Report',
-      description: 'Monthly attendance summary for all players',
-      icon: Calendar,
-      category: 'Operations'
-    },
-    {
-      id: 'performance-report',
-      title: 'Player Performance Report',
-      description: 'Detailed performance metrics for all players',
-      icon: TrendingUp,
-      category: 'Operations'
-    },
-    {
-      id: 'monthly-summary',
-      title: 'Monthly Summary Report',
-      description: 'Comprehensive monthly business summary including financials and attendance',
-      icon: FileText,
-      category: 'Summary'
+      id: 'monthly-summary', title: 'Monthly Summary Report',
+      description: 'Comprehensive monthly snapshot including players, coaches, and attendance',
+      icon: FileText, category: 'Summary',
+      apiEndpoint: '/admin/reports/monthly-summary',
+      formats: ['PDF', 'Excel']
     }
   ];
 
-  const generateCSV = (data: any[], filename: string) => {
-    if (data.length === 0) return '';
-
-    const headers = Object.keys(data[0]);
-    const csvContent = [
-      headers.join(','),
-      ...data.map(row =>
-        headers.map(header => {
-          const value = row[header];
-          // Escape commas and quotes
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-            return `"${value.replace(/"/g, '""')}"`;
-          }
-          return value;
-        }).join(',')
-      )
-    ].join('\n');
-
-    return csvContent;
+  const fetchReportData = async (endpoint: string): Promise<any[]> => {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const json = await res.json();
+    return json.data || [];
   };
 
-  const downloadReport = (reportId: string) => {
-    let csvData = '';
-    let filename = '';
+  // ---------- PDF generators per report ----------
+  const generatePDF = (reportId: string, title: string, data: any[]) => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    buildPDFHeader(doc, title, `CricMate Admin Report`);
+
+    if (!data || data.length === 0) {
+      doc.setFontSize(13);
+      doc.setTextColor(150, 150, 150);
+      doc.text('No data available.', 14, 50);
+      addPDFFooter(doc);
+      doc.save(`${title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      return;
+    }
+
+    let columns: string[] = [];
+    let rows: any[][] = [];
 
     switch (reportId) {
       case 'all-payments':
-        const paymentData = payments.map(p => ({
-          'Player ID': p.playerId,
-          'Player Name': players.find(pl => pl.id === p.playerId)?.name || 'N/A',
-          'Amount (LKR)': p.amount,
-          'Due Date': new Date(p.dueDate).toLocaleDateString(),
-          'Status': p.status,
-          'Payment ID': p.id
-        }));
-        csvData = generateCSV(paymentData, 'all-payments');
-        filename = 'full-payment-report.csv';
+        columns = ['Player Name', 'Amount (LKR)', 'Month', 'Due Date', 'Status'];
+        rows = data.map(d => [d.playerName, d.amount, d.month, d.dueDate, d.status]);
         break;
-
       case 'overdue-payments':
-        const overdueData = payments
-          .filter(p => p.status === 'overdue')
-          .map(p => {
-            const player = players.find(pl => pl.id === p.playerId);
-            return {
-              'Player Name': player?.name || 'N/A',
-              'Player Age': player?.age || 'N/A',
-              'Amount (LKR)': p.amount,
-              'Due Date': new Date(p.dueDate).toLocaleDateString(),
-              'Days Overdue': Math.floor((new Date().getTime() - new Date(p.dueDate).getTime()) / (1000 * 60 * 60 * 24))
-            };
-          });
-        csvData = generateCSV(overdueData, 'overdue-payments');
-        filename = 'overdue-payments-report.csv';
+        columns = ['Player Name', 'Age', 'Amount (LKR)', 'Due Date', 'Days Overdue', 'Status'];
+        rows = data.map(d => [d.playerName, d.playerAge, d.amount, d.dueDate, d.daysOverdue, d.status]);
         break;
-
       case 'coaches-list':
-        const coachData = coaches.map(c => ({
-          'Name': c.name,
-          'Email': c.email,
-          'Coach ID': c.id,
-          'Status': 'Active'
-        }));
-        csvData = generateCSV(coachData, 'coaches-list');
-        filename = 'coaches-list.csv';
+        columns = ['Coach ID', 'Name', 'Email', 'Phone', 'Status', 'Date Joined'];
+        rows = data.map(d => [d.id, d.name, d.email, d.phone || 'N/A', d.status, d.dateJoined]);
         break;
-
       case 'players-list':
-        const playerData = players.map(p => ({
-          'Name': p.name,
-          'Age': p.age,
-          'Role': p.role,
-          'Matches': p.stats.matches,
-          'Runs': p.stats.runs,
-          'Wickets': p.stats.wickets,
-          'Average': p.stats.average,
-          'Invite Code': p.inviteCode
-        }));
-        csvData = generateCSV(playerData, 'players-list');
-        filename = 'players-list.csv';
+        columns = ['Player ID', 'Name', 'Age', 'Role', 'Matches', 'Runs', 'Wickets', 'Avg', 'SR'];
+        rows = data.map(d => [d.id, d.name, d.age, d.role, d.matches, d.runs, d.wickets, d.battingAvg, d.strikeRate]);
         break;
-
       case 'parents-list':
-        const parentData = parents.map(parent => {
-          const linkedPlayer = players.find(p => p.id === parent.linkedPlayerId);
-          return {
-            'Parent Name': parent.name,
-            'Email': parent.email,
-            'Child Name': linkedPlayer?.name || 'Not Linked',
-            'Status': parent.status
-          };
-        });
-        csvData = generateCSV(parentData, 'parents-list');
-        filename = 'parents-list.csv';
+        columns = ['Parent ID', 'Name', 'Email', 'Phone', 'Linked Children', 'Total Children', 'Status'];
+        rows = data.map(d => [d.id, d.name, d.email, d.phone || 'N/A', d.linkedChildren, d.totalChildren, d.status]);
         break;
-
       case 'attendance-report':
-        const attendanceData = players.map(p => ({
-          'Player Name': p.name,
-          'Age': p.age,
-          'Role': p.role,
-          'Total Sessions': 20,
-          'Present': 18,
-          'Absent': 2,
-          'Attendance Rate': '90%'
-        }));
-        csvData = generateCSV(attendanceData, 'attendance-report');
-        filename = 'attendance-report.csv';
+        columns = ['Player Name', 'Role', 'Total Sessions', 'Present', 'Absent', 'Early Leave', 'Rate'];
+        rows = data.map(d => [d.playerName, d.role, d.totalSessions, d.present, d.absent, d.earlyLeave, d.attendanceRate]);
         break;
-
       case 'performance-report':
-        const performanceData = players.map(p => ({
-          'Player Name': p.name,
-          'Role': p.role,
-          'Matches': p.stats.matches,
-          'Runs': p.stats.runs,
-          'Wickets': p.stats.wickets,
-          'Average': p.stats.average,
-          'Strike Rate': p.stats.strikeRate,
-          'Economy': p.stats.economy
-        }));
-        csvData = generateCSV(performanceData, 'performance-report');
-        filename = 'performance-report.csv';
+        columns = ['Name', 'Age', 'Role', 'Matches', 'Runs', 'Wickets', 'Avg', 'Strike Rate', 'Economy'];
+        rows = data.map(d => [d.name, d.age, d.role, d.matches, d.runs, d.wickets, d.battingAvg, d.strikeRate, d.economy]);
         break;
-
       case 'monthly-summary':
-        const summaryData = [{
-          'Report Month': new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-          'Total Players': players.length,
-          'Total Coaches': coaches.length,
-          'Total Parents': parents.length,
-          'Total Payments': payments.length,
-          'Paid Payments': payments.filter(p => p.status === 'paid').length,
-          'Overdue Payments': payments.filter(p => p.status === 'overdue').length,
-          'Total Revenue (LKR)': payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0),
-          'Outstanding Amount (LKR)': payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0)
-        }];
-        csvData = generateCSV(summaryData, 'monthly-summary');
-        filename = 'monthly-summary-report.csv';
+        columns = ['Metric', 'Value'];
+        rows = Object.entries(data[0]).map(([k, v]) => [
+          k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()), String(v)
+        ]);
         break;
-
-      default:
-        toast.error('Report type not found');
-        return;
     }
 
-    // Create and download CSV file
-    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    autoTable(doc, {
+      startY: 40,
+      head: [columns],
+      body: rows,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: {
+        fillColor: PDF_BRAND_COLOR,
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: { fillColor: PDF_HEADER_BG },
+      margin: { left: 14, right: 14 }
+    });
 
-    toast.success(`${filename} downloaded successfully!`);
+    addPDFFooter(doc);
+    doc.save(`${title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
-  const categories = ['All', 'Financial', 'Personnel', 'Operations', 'Summary'];
+  // ---------- Excel generators per report ----------
+  const generateExcel = (reportId: string, title: string, data: any[]) => {
+    if (!data || data.length === 0) {
+      toast.error('No data available to export.');
+      return;
+    }
+
+    let exportData: any[] = [];
+
+    switch (reportId) {
+      case 'all-payments':
+        exportData = data.map(d => ({
+          'Player Name': d.playerName, 'Amount (LKR)': d.amount,
+          'Month': d.month, 'Year': d.year,
+          'Due Date': d.dueDate, 'Status': d.status
+        }));
+        break;
+      case 'overdue-payments':
+        exportData = data.map(d => ({
+          'Player Name': d.playerName, 'Age': d.playerAge,
+          'Amount (LKR)': d.amount, 'Due Date': d.dueDate,
+          'Days Overdue': d.daysOverdue, 'Status': d.status
+        }));
+        break;
+      case 'coaches-list':
+        exportData = data.map(d => ({
+          'Coach ID': d.id, 'Name': d.name, 'Email': d.email,
+          'Phone': d.phone || 'N/A', 'Status': d.status, 'Date Joined': d.dateJoined
+        }));
+        break;
+      case 'players-list':
+        exportData = data.map(d => ({
+          'Player ID': d.id, 'Name': d.name, 'Age': d.age,
+          'Role': d.role, 'Batting Style': d.battingStyle, 'Bowling Style': d.bowlingStyle,
+          'Matches': d.matches, 'Runs': d.runs, 'Wickets': d.wickets,
+          'Batting Avg': d.battingAvg, 'Strike Rate': d.strikeRate, 'Economy': d.economy
+        }));
+        break;
+      case 'parents-list':
+        exportData = data.map(d => ({
+          'Parent ID': d.id, 'Name': d.name, 'Email': d.email,
+          'Phone': d.phone || 'N/A',
+          'Linked Children': d.linkedChildren,
+          'Total Children': d.totalChildren,
+          'Status': d.status
+        }));
+        break;
+      case 'attendance-report':
+        exportData = data.map(d => ({
+          'Player Name': d.playerName, 'Role': d.role,
+          'Total Sessions': d.totalSessions, 'Present': d.present,
+          'Absent': d.absent, 'Early Leave': d.earlyLeave,
+          'Attendance Rate': d.attendanceRate
+        }));
+        break;
+      case 'performance-report':
+        exportData = data.map(d => ({
+          'Player Name': d.name, 'Age': d.age, 'Role': d.role,
+          'Matches': d.matches, 'Runs': d.runs, 'Wickets': d.wickets,
+          'Batting Avg': d.battingAvg, 'Strike Rate': d.strikeRate, 'Economy': d.economy
+        }));
+        break;
+      case 'monthly-summary':
+        exportData = Object.entries(data[0]).map(([k, v]) => ({
+          'Metric': k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()),
+          'Value': String(v)
+        }));
+        break;
+      default:
+        exportData = data;
+    }
+
+    downloadAsExcel(exportData, title.replace(/\s+/g, '_'), title.substring(0, 30));
+  };
+
+  const handleDownload = async (report: ReportCard, format: 'PDF' | 'Excel') => {
+    const key = `${report.id}-${format}`;
+    setDownloading(key);
+    try {
+      const data = await fetchReportData(report.apiEndpoint);
+      if (format === 'PDF') {
+        generatePDF(report.id, report.title, data);
+      } else {
+        generateExcel(report.id, report.title, data);
+      }
+      toast.success(`${report.title} (${format}) downloaded successfully!`);
+    } catch (error: any) {
+      console.error('Report download error:', error);
+      toast.error(`Failed to download report: ${error.message}`);
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const categories = ['All', 'Financial', 'Personnel', 'Summary'];
   const [selectedCategory, setSelectedCategory] = React.useState('All');
 
   const filteredReports = selectedCategory === 'All'
@@ -251,7 +330,7 @@ export function AdminReportsScreen() {
           <div className="mb-8">
             <h1 className="mb-2">Business Reports</h1>
             <p className="text-muted-foreground">
-              Download comprehensive reports for business operations and analytics
+              Download comprehensive reports with live data — available as PDF or Excel
             </p>
           </div>
 
@@ -325,7 +404,7 @@ export function AdminReportsScreen() {
             {filteredReports.map((report) => {
               const Icon = report.icon;
               return (
-                <Card key={report.id} className="p-6 hover:shadow-lg transition-shadow">
+                <Card key={report.id} className="p-6 hover:shadow-lg transition-all duration-200 border hover:border-primary/30">
                   <div className="flex items-start gap-4 mb-4">
                     <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                       <Icon className="w-6 h-6 text-primary" />
@@ -341,13 +420,40 @@ export function AdminReportsScreen() {
                     </div>
                   </div>
 
-                  <Button
-                    onClick={() => downloadReport(report.id)}
-                    className="w-full bg-primary hover:bg-primary/90"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download CSV
-                  </Button>
+                  <div className="flex gap-2">
+                    {report.formats.includes('PDF') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 border-red-400 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                        onClick={() => handleDownload(report, 'PDF')}
+                        disabled={downloading === `${report.id}-PDF`}
+                      >
+                        {downloading === `${report.id}-PDF` ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <FileText className="w-4 h-4 mr-1" />
+                        )}
+                        {downloading === `${report.id}-PDF` ? 'Generating...' : 'PDF'}
+                      </Button>
+                    )}
+                    {report.formats.includes('Excel') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 border-green-500 text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                        onClick={() => handleDownload(report, 'Excel')}
+                        disabled={downloading === `${report.id}-Excel`}
+                      >
+                        {downloading === `${report.id}-Excel` ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <FileSpreadsheet className="w-4 h-4 mr-1" />
+                        )}
+                        {downloading === `${report.id}-Excel` ? 'Generating...' : 'Excel'}
+                      </Button>
+                    )}
+                  </div>
                 </Card>
               );
             })}

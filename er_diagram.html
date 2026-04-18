@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CricMate ER Diagram</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#f8fafc; font-family:'Segoe UI',Arial,sans-serif; }
+#wrap { position:relative; width:2500px; height:1820px; background:white; }
+svg#lines { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+.ent { position:absolute; border-radius:6px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.18); border:2px solid #1e40af; min-width:185px; }
+.ent-h { padding:6px 10px; font-weight:700; font-size:11.5px; text-align:center; color:#fff; letter-spacing:.4px; }
+.ent table { width:100%; border-collapse:collapse; }
+.ent tr { border-bottom:1px solid #e5e7eb; }
+.ent td { padding:2px 6px; font-size:9.5px; }
+.ent td.b { width:26px; text-align:center; font-weight:700; font-size:8.5px; border-right:1px solid #e5e7eb; }
+.ent td.n { font-family:'Courier New',monospace; color:#111; }
+.ent td.n.pk { text-decoration:underline; font-weight:700; }
+.ent td.t { color:#6b7280; font-size:8.5px; text-align:right; padding-right:6px; }
+.pk-b { color:#1e40af; background:#dbeafe; }
+.fk-b { color:#047857; background:#d1fae5; }
+#title { position:absolute; top:16px; left:50%; transform:translateX(-50%); font-size:20px; font-weight:800; color:#1e3a5f; white-space:nowrap; }
+#sub { position:absolute; top:44px; left:50%; transform:translateX(-50%); font-size:12px; color:#64748b; white-space:nowrap; }
+#legend { position:absolute; bottom:24px; right:24px; background:white; border:1.5px solid #cbd5e1; border-radius:8px; padding:10px 14px; font-size:9.5px; color:#374151; box-shadow:0 2px 6px rgba(0,0,0,.1); }
+#legend div { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+#legend span.box { display:inline-block; width:30px; height:10px; border-radius:2px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="title">CricMate Cricket Academy Management System — Entity Relationship Diagram</div>
+  <div id="sub">All entities derived from actual Sequelize model files</div>
+  <svg id="lines"></svg>
+
+  <!-- ═══════════════════ ENTITIES ═══════════════════ -->
+
+  <!-- SECURITY TOP ROW -->
+  <div class="ent" id="loginattempt" style="left:30px;top:90px">
+    <div class="ent-h" style="background:#7c3aed">LoginAttempt</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">id</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">email</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">ipAddress</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">userAgent</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">attemptTime</td><td class="t">DATETIME</td></tr>
+      <tr><td class="b"></td><td class="n">success</td><td class="t">BOOLEAN</td></tr>
+    </table>
+  </div>
+
+  <div class="ent" id="passwordreset" style="left:240px;top:90px">
+    <div class="ent-h" style="background:#7c3aed">PasswordReset</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">id</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">userID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">token</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">expiresAt</td><td class="t">DATETIME</td></tr>
+      <tr><td class="b"></td><td class="n">used</td><td class="t">BOOLEAN</td></tr>
+    </table>
+  </div>
+
+  <div class="ent" id="passwordhistory" style="left:456px;top:90px">
+    <div class="ent-h" style="background:#7c3aed">PasswordHistory</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">id</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">userID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">passwordHash</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">changedAt</td><td class="t">DATETIME</td></tr>
+    </table>
+  </div>
+
+  <!-- SESSION TOP-CENTER -->
+  <div class="ent" id="session" style="left:790px;top:90px">
+    <div class="ent-h" style="background:#0369a1">Session</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">sessionID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">coachID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">groupID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">title</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">sessionDate</td><td class="t">DATE</td></tr>
+      <tr><td class="b"></td><td class="n">startTime</td><td class="t">TIME</td></tr>
+      <tr><td class="b"></td><td class="n">endTime</td><td class="t">TIME</td></tr>
+      <tr><td class="b"></td><td class="n">status</td><td class="t">VARCHAR</td></tr>
+    </table>
+  </div>
+
+  <!-- PLAYER GROUP TOP -->
+  <div class="ent" id="playergroup" style="left:1130px;top:90px">
+    <div class="ent-h" style="background:#0369a1">PlayerGroup</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">groupID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">groupName</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">location</td><td class="t">VARCHAR</td></tr>
+    </table>
+  </div>
+
+  <!-- NOTIFICATION TOP-RIGHT -->
+  <div class="ent" id="notification" style="left:1640px;top:90px">
+    <div class="ent-h" style="background:#be185d">Notification</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">notificationID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">userID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">templateID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">content</td><td class="t">TEXT</td></tr>
+      <tr><td class="b"></td><td class="n">status</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">channel</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">sentAt</td><td class="t">DATETIME</td></tr>
+      <tr><td class="b"></td><td class="n">triggeringEntityType</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">triggeringEntityID</td><td class="t">INT</td></tr>
+    </table>
+  </div>
+
+  <!-- NOTIFICATION TEMPLATE FAR RIGHT -->
+  <div class="ent" id="notificationtemplate" style="left:1930px;top:90px">
+    <div class="ent-h" style="background:#be185d">NotificationTemplate</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">templateID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">templateName</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">templateBody</td><td class="t">TEXT</td></tr>
+      <tr><td class="b"></td><td class="n">channel</td><td class="t">VARCHAR</td></tr>
+    </table>
+  </div>
+
+  <!-- INVITE CODE LEFT -->
+  <div class="ent" id="invitecode" style="left:30px;top:370px">
+    <div class="ent-h" style="background:#0f766e">InviteCode</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">codeID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">playerUserID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">parentUserID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">codeValue</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">expiryDate</td><td class="t">DATETIME</td></tr>
+      <tr><td class="b"></td><td class="n">isUsed</td><td class="t">BOOLEAN</td></tr>
+    </table>
+  </div>
+
+  <!-- PLAYER PROFILE LEFT-CENTER -->
+  <div class="ent" id="playerprofile" style="left:30px;top:590px">
+    <div class="ent-h" style="background:#0f766e">PlayerProfile</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">playerUserID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">dob</td><td class="t">DATE</td></tr>
+      <tr><td class="b"></td><td class="n">battingStyle</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">bowlingStyle</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">playerRole</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">photoURL</td><td class="t">VARCHAR</td></tr>
+    </table>
+  </div>
+
+  <!-- USER CENTER -->
+  <div class="ent" id="user" style="left:830px;top:420px">
+    <div class="ent-h" style="background:#1e3a5f;font-size:13px">👤 USER</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">userID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">name</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">email</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">passwordHash</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">role</td><td class="t">ENUM</td></tr>
+      <tr><td class="b"></td><td class="n">contactNumber</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">accountStatus</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">failedLoginAttempts</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">lockoutUntil</td><td class="t">DATETIME</td></tr>
+      <tr><td class="b"></td><td class="n">lastLoginAt</td><td class="t">DATETIME</td></tr>
+      <tr><td class="b"></td><td class="n">passwordChangedAt</td><td class="t">DATETIME</td></tr>
+    </table>
+  </div>
+
+  <!-- MESSAGE RIGHT-CENTER -->
+  <div class="ent" id="message" style="left:1430px;top:420px">
+    <div class="ent-h" style="background:#be185d">Message</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">messageID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">senderID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">receiverID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">content</td><td class="t">TEXT</td></tr>
+      <tr><td class="b"></td><td class="n">isRead</td><td class="t">BOOLEAN</td></tr>
+      <tr><td class="b"></td><td class="n">sentAt</td><td class="t">DATETIME</td></tr>
+    </table>
+  </div>
+
+  <!-- AUDIT LOG RIGHT -->
+  <div class="ent" id="auditlog" style="left:1640px;top:400px">
+    <div class="ent-h" style="background:#92400e">AuditLog</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">auditLogID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">performedBy</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">action</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">entity</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">entityID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">timestamp</td><td class="t">DATETIME</td></tr>
+    </table>
+  </div>
+
+  <!-- REPORT LOG FAR RIGHT -->
+  <div class="ent" id="reportlog" style="left:1930px;top:400px">
+    <div class="ent-h" style="background:#92400e">ReportLog</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">reportID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">generatedBy</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">reportType</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">format</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">generatedAt</td><td class="t">DATETIME</td></tr>
+    </table>
+  </div>
+
+  <!-- FEE LEFT BOTTOM -->
+  <div class="ent" id="fee" style="left:30px;top:870px">
+    <div class="ent-h" style="background:#b45309">Fee</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">feeID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">playerUserID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">month</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">year</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">amountDue</td><td class="t">DECIMAL</td></tr>
+      <tr><td class="b"></td><td class="n">dueDate</td><td class="t">DATE</td></tr>
+      <tr><td class="b"></td><td class="n">status</td><td class="t">VARCHAR</td></tr>
+    </table>
+  </div>
+
+  <!-- ATTENDANCE RECORD CENTER-BOTTOM -->
+  <div class="ent" id="attendance_record" style="left:560px;top:870px">
+    <div class="ent-h" style="background:#0369a1">AttendanceRecord</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">recordID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">playerUserID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">sessionID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">markedBy</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">status</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">attendanceDate</td><td class="t">DATE</td></tr>
+      <tr><td class="b"></td><td class="n">checkInTime</td><td class="t">TIME</td></tr>
+      <tr><td class="b"></td><td class="n">checkOutTime</td><td class="t">TIME</td></tr>
+    </table>
+  </div>
+
+  <!-- MATCH CENTER-BOTTOM -->
+  <div class="ent" id="match" style="left:880px;top:870px">
+    <div class="ent-h" style="background:#155e75">Match</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">matchID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">opponentID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">createdBy</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">matchDate</td><td class="t">DATE</td></tr>
+      <tr><td class="b"></td><td class="n">matchType</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">venue</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">result</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">status</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">squadIds</td><td class="t">JSON</td></tr>
+    </table>
+  </div>
+
+  <!-- OPPONENT RIGHT -->
+  <div class="ent" id="opponent" style="left:1200px;top:870px">
+    <div class="ent-h" style="background:#155e75">Opponent</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">opponentID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">opponentName</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">contactInfo</td><td class="t">VARCHAR</td></tr>
+    </table>
+  </div>
+
+  <!-- PAYMENT BOTTOM LEFT -->
+  <div class="ent" id="payment" style="left:30px;top:1150px">
+    <div class="ent-h" style="background:#b45309">Payment</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">paymentID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">feeID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">paidBy</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">amountPaid</td><td class="t">DECIMAL</td></tr>
+      <tr><td class="b"></td><td class="n">paymentDate</td><td class="t">DATE</td></tr>
+      <tr><td class="b"></td><td class="n">paymentMethod</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">gatewayTransactionID</td><td class="t">VARCHAR</td></tr>
+      <tr><td class="b"></td><td class="n">status</td><td class="t">VARCHAR</td></tr>
+    </table>
+  </div>
+
+  <!-- MATCH STATS BOTTOM CENTER -->
+  <div class="ent" id="matchstats" style="left:700px;top:1180px">
+    <div class="ent-h" style="background:#155e75">MatchStats</div>
+    <table>
+      <tr><td class="b pk-b">PK</td><td class="n pk">matchStatID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">matchID</td><td class="t">INT</td></tr>
+      <tr><td class="b fk-b">FK</td><td class="n">playerUserID</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">runsScored</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">ballsFaced</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">fours</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">sixes</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">wicketsTaken</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">oversBowled</td><td class="t">DECIMAL</td></tr>
+      <tr><td class="b"></td><td class="n">runsConceded</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">catches</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">stumping</td><td class="t">INT</td></tr>
+      <tr><td class="b"></td><td class="n">wasOut</td><td class="t">BOOLEAN</td></tr>
+    </table>
+  </div>
+
+  <!-- LEGEND -->
+  <div id="legend">
+    <b style="font-size:11px;color:#1e3a5f">Legend</b>
+    <div style="height:6px"></div>
+    <div><span class="box" style="background:#dbeafe;border:1px solid #93c5fd"></span> PK — Primary Key</div>
+    <div><span class="box" style="background:#d1fae5;border:1px solid #6ee7b7"></span> FK — Foreign Key</div>
+    <div style="height:4px;border-top:1px dashed #e2e8f0;margin:4px 0"></div>
+    <div><span style="display:inline-block;width:30px;height:2px;background:#94a3b8;margin-right:8px"></span> Relationship</div>
+    <div><b style="color:#1d4ed8;margin-right:4px">1</b> One side &nbsp;&nbsp;<b style="color:#1d4ed8">M</b> Many side</div>
+    <div style="height:4px;border-top:1px dashed #e2e8f0;margin:4px 0"></div>
+    <div style="color:#7c3aed">■ Security</div>
+    <div style="color:#0369a1">■ Session / Attendance</div>
+    <div style="color:#0f766e">■ Player / Profile</div>
+    <div style="color:#155e75">■ Match</div>
+    <div style="color:#b45309">■ Payment</div>
+    <div style="color:#be185d">■ Communication</div>
+    <div style="color:#92400e">■ Audit / Reports</div>
+  </div>
+</div>
+
+<script>
+const svg = document.getElementById('lines');
+const wrap = document.getElementById('wrap');
+
+function getBox(id) {
+  const el = document.getElementById(id);
+  const wr = wrap.getBoundingClientRect();
+  const r  = el.getBoundingClientRect();
+  return {
+    l: r.left - wr.left,
+    r: r.right - wr.left,
+    t: r.top - wr.top,
+    b: r.bottom - wr.top,
+    cx: r.left - wr.left + r.width / 2,
+    cy: r.top - wr.top + r.height / 2,
+    w: r.width, h: r.height
+  };
+}
+
+function edge(box, side) {
+  switch(side) {
+    case 'l': return [box.l, box.cy];
+    case 'r': return [box.r, box.cy];
+    case 't': return [box.cx, box.t];
+    case 'b': return [box.cx, box.b];
+    case 'tl': return [box.l + box.w*0.25, box.t];
+    case 'tr': return [box.l + box.w*0.75, box.t];
+    case 'bl': return [box.l + box.w*0.25, box.b];
+    case 'br': return [box.l + box.w*0.75, box.b];
+  }
+}
+
+function line(svg, x1,y1,x2,y2, label, fromC, toC, color='#94a3b8') {
+  const mx=(x1+x2)/2, my=(y1+y2)/2;
+
+  // Curved path
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  const dx=x2-x1, dy=y2-y1;
+  const bx1=(Math.abs(dx)>Math.abs(dy)) ? mx : x1;
+  const by1=(Math.abs(dx)>Math.abs(dy)) ? y1 : my;
+  const bx2=(Math.abs(dx)>Math.abs(dy)) ? mx : x2;
+  const by2=(Math.abs(dx)>Math.abs(dy)) ? y2 : my;
+  path.setAttribute('d',`M${x1},${y1} C${bx1},${by1} ${bx2},${by2} ${x2},${y2}`);
+  path.setAttribute('stroke',color);
+  path.setAttribute('stroke-width','1.6');
+  path.setAttribute('fill','none');
+  path.setAttribute('opacity','0.85');
+  svg.appendChild(path);
+
+  // Label
+  if(label) {
+    const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    const tw = label.length*5.5+6;
+    bg.setAttribute('x', mx-tw/2); bg.setAttribute('y', my-10);
+    bg.setAttribute('width', tw); bg.setAttribute('height', 13);
+    bg.setAttribute('fill', 'white'); bg.setAttribute('rx', '3');
+    svg.appendChild(bg);
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x', mx); t.setAttribute('y', my);
+    t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','9');
+    t.setAttribute('fill','#374151'); t.setAttribute('font-family','Segoe UI, Arial');
+    t.textContent = label;
+    svg.appendChild(t);
+  }
+
+  // Cardinality
+  function card(cx,cy,txt,dx2,dy2){
+    const ct=document.createElementNS('http://www.w3.org/2000/svg','text');
+    ct.setAttribute('x',cx+dx2); ct.setAttribute('y',cy+dy2);
+    ct.setAttribute('text-anchor','middle'); ct.setAttribute('font-size','10');
+    ct.setAttribute('font-weight','700'); ct.setAttribute('fill','#1d4ed8');
+    ct.setAttribute('font-family','Segoe UI, Arial');
+    ct.textContent=txt;
+    svg.appendChild(ct);
+  }
+  const len=Math.sqrt((x2-x1)**2+(y2-y1)**2)||1;
+  const ux=(x2-x1)/len, uy=(y2-y1)/len;
+  card(x1,y1, fromC, ux*18, uy*18);
+  card(x2,y2, toC,  -ux*18,-uy*18);
+}
+
+window.addEventListener('load', () => {
+  const rels = [
+    // [fromId, fromSide, toId, toSide, label, fromCard, toCard]
+    ['user','t','session','b','coaches','1','M'],
+    ['user','t','passwordreset','b','requests','1','M'],
+    ['user','t','passwordhistory','b','has','1','M'],
+    ['user','l','playerprofile','r','has','1','1'],
+    ['user','l','invitecode','r','generates','1','M'],
+    ['user','l','fee','r','owes','1','M'],
+    ['user','b','attendance_record','t','attends','1','M'],
+    ['user','b','match','t','creates','1','M'],
+    ['user','b','matchstats','t','records','1','M'],
+    ['user','b','payment','t','makes','1','M'],
+    ['user','r','message','l','sends/receives','1','M'],
+    ['user','r','notification','l','receives','1','M'],
+    ['user','r','auditlog','l','performs','1','M'],
+    ['user','r','reportlog','l','generates','1','M'],
+    ['session','r','playergroup','l','for','M','1'],
+    ['session','b','attendance_record','t','logs','1','M'],
+    ['match','r','opponent','l','plays in','M','1'],
+    ['match','b','matchstats','t','contains','1','M'],
+    ['fee','b','payment','t','settled by','1','M'],
+    ['notification','r','notificationtemplate','l','uses','M','1'],
+  ];
+
+  rels.forEach(([fId, fSide, tId, tSide, label, fC, tC]) => {
+    const fb = getBox(fId);
+    const tb = getBox(tId);
+    const [x1,y1] = edge(fb, fSide);
+    const [x2,y2] = edge(tb, tSide);
+    line(svg, x1,y1,x2,y2, label, fC, tC);
+  });
+});
+</script>
+</body>
+</html>

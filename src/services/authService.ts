@@ -130,6 +130,20 @@ class AuthService {
     }
 
     /**
+     * Update profile photo
+     */
+    async updatePhoto(photoURL: string): Promise<{ message: string; photoURL: string }> {
+        const response = await api.put('/auth/update-photo', { photoURL });
+        // Persist photo in localStorage so it survives page refresh
+        const storedUser = this.getStoredUser();
+        if (storedUser) {
+            storedUser.photo = photoURL;
+            localStorage.setItem('user', JSON.stringify(storedUser));
+        }
+        return response.data;
+    }
+
+    /**
      * Get stored token
      */
     getToken(): string | null {

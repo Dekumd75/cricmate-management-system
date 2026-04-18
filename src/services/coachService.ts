@@ -33,6 +33,21 @@ const coachService = {
     rejectParent: async (parentId: number) => {
         const response = await api.post(`/coach/reject-parent/${parentId}`);
         return response.data;
+    },
+
+    // Get total player count
+    getPlayerCount: async (): Promise<number> => {
+        const response = await api.get('/coach/players');
+        return (response.data.players || []).length;
+    },
+
+    // Get today's attendance summary (present / total)
+    getTodayAttendance: async (): Promise<{ present: number; total: number }> => {
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const response = await api.get(`/attendance/date/${today}`);
+        const records: any[] = response.data.records || [];
+        const present = records.filter((r: any) => r.status === 'present' || r.status === 'early-leave').length;
+        return { present, total: records.length };
     }
 };
 

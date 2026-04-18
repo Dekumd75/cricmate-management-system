@@ -3,9 +3,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { useApp } from './AppContext';
-import { MessageSquare, Link2, Eye, CreditCard, Loader2 } from 'lucide-react';
+import { MessageSquare, Link2, Eye, CreditCard, Loader2, AlertCircle, Clock, CheckCircle2, RefreshCw } from 'lucide-react';
 import { ParentSidebar } from './ParentSidebar';
 import api from '../services/api';
+
+const API_BASE = 'http://localhost:5000/api';
+const auth = () => ({
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${localStorage.getItem('token')}`,
+});
 
 interface LinkedChild {
   id: string;
@@ -16,14 +22,32 @@ interface LinkedChild {
   stats: { matches: number; runs: number; wickets: number; average: number };
 }
 
+interface Fee {
+  feeID: number;
+  playerID: number | string;
+  playerName: string;
+  month: number;
+  year: number;
+  amountDue: number;
+  dueDate: string;
+  status: 'pending' | 'overdue' | 'paid';
+}
+
+const MONTH_NAMES: Record<number, string> = {
+  1:'January',2:'February',3:'March',4:'April',5:'May',6:'June',
+  7:'July',8:'August',9:'September',10:'October',11:'November',12:'December',
+};
+
 export function ParentDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, payments, messages } = useApp();
+  const { user, messages } = useApp();
   const [linkedChildren, setLinkedChildren] = useState<LinkedChild[]>([]);
   const [loadingChildren, setLoadingChildren] = useState(true);
+  const [fees, setFees] = useState<Fee[]>([]);
+  const [loadingFees, setLoadingFees] = useState(true);
 
-  // Load linked children from DB on mount, and whenever we return from link-child with a refresh flag
+  // Load linked children from DB on mount, and whenever we return from link-child
   useEffect(() => {
     const fetchChildren = async () => {
       setLoadingChildren(true);
@@ -37,28 +61,47 @@ export function ParentDashboard() {
       }
     };
     fetchChildren();
-  // Re-run when we return from link-child screen (refresh flag changes)
   }, [location.state?.refresh]);
 
-  const linkedPlayerIds = linkedChildren.map(c => c.id);
-  const allChildrenPayments = payments.filter(p => linkedPlayerIds.includes(p.playerId));
-  const overduePayments = allChildrenPayments.filter(p => p.status === 'overdue');
+  // Load real payment fees for all linked children
+  const fetchFees = async () => {
+    setLoadingFees(true);
+    try {
+      const res = await fetch(`${API_BASE}/payments/fees/my`, { headers: auth() });
+      const data = await res.json();
+      setFees(data.fees || []);
+    } catch (err) {
+      console.error('Failed to fetch fees:', err);
+      setFees([]);
+    } finally {
+      setLoadingFees(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFees();
+  }, [location.state?.refresh]);
+
   const unreadMessages = messages.filter(m => !m.read && m.to === user?.email);
+
+  // Group unpaid fees per child
+  const getFeesByChild = (childId: string) =>
+    fees.filter(f => String(f.playerID) === String(childId));
+
+  const getOverdueFees = (childId: string) =>
+    getFeesByChild(childId).filter(f => f.status === 'overdue');
+
+  const getPendingFees = (childId: string) =>
+    getFeesByChild(childId).filter(f => f.status === 'pending');
+
+  const allOverdueFees = fees.filter(f => f.status === 'overdue');
 
   const handleViewProfile = (playerId: string) => {
     navigate(`/parent/player-profile?id=${playerId}`);
   };
 
-  const handlePayNow = (payment: any, childName: string) => {
-    navigate('/parent/payment', {
-      state: {
-        payment: {
-          amount: payment.amount,
-          description: `Monthly Academy Fee - ${childName}`,
-          playerId: payment.playerId
-        }
-      }
-    });
+  const handlePayNow = (fee: Fee) => {
+    navigate('/parent/payment', { state: { fee } });
   };
 
   return (
@@ -66,7 +109,13 @@ export function ParentDashboard() {
       <ParentSidebar />
       <div className="flex-1 p-8 overflow-auto">
         <div className="max-w-4xl mx-auto">
-          <h1 className="mb-8">Dashboard</h1>
+          <div className="flex items-center justify-between mb-8">
+            <h1>Dashboard</h1>
+            <Button size="sm" variant="outline" onClick={fetchFees} className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </Button>
+          </div>
 
           {/* Loading state */}
           {loadingChildren ? (
@@ -122,36 +171,37 @@ export function ParentDashboard() {
                 </Card>
               )}
 
-              {/* Overdue Payments Alert */}
-              {overduePayments.length > 0 && (
+              {/* Overdue Payments Alert — from real API data */}
+              {!loadingFees && allOverdueFees.length > 0 && (
                 <Card className="p-6 border-2 border-destructive">
-                  <h3 className="text-destructive mb-4">
-                    {overduePayments.length} Overdue Payment{overduePayments.length > 1 ? 's' : ''}
-                  </h3>
-                  <div className="space-y-4">
-                    {overduePayments.map((payment) => {
-                      const child = linkedChildren.find(c => c.id === payment.playerId);
+                  <div className="flex items-center gap-2 mb-4">
+                    <AlertCircle className="w-5 h-5 text-destructive" />
+                    <h3 className="text-destructive">
+                      {allOverdueFees.length} Overdue Payment{allOverdueFees.length > 1 ? 's' : ''}
+                    </h3>
+                  </div>
+                  <div className="space-y-3">
+                    {allOverdueFees.map((fee) => {
+                      const child = linkedChildren.find(c => String(c.id) === String(fee.playerID));
                       return (
-                        <div key={payment.id} className="p-4 bg-destructive/5 rounded-lg">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="mb-1">{child?.name}</h4>
-                              <p className="text-muted-foreground mb-3">Monthly fee payment</p>
-                              <div className="mb-3">
-                                <p className="text-2xl">LKR {payment.amount.toLocaleString()}</p>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  Due date: {new Date(payment.dueDate).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <Button
-                                className="bg-accent hover:bg-accent/90 text-accent-foreground"
-                                onClick={() => handlePayNow(payment, child?.name || '')}
-                              >
-                                <CreditCard className="w-4 h-4 mr-2" />
-                                Pay Now
-                              </Button>
-                            </div>
+                        <div key={fee.feeID} className="p-4 bg-destructive/5 rounded-lg flex items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <h4 className="mb-0.5">{fee.playerName || child?.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {MONTH_NAMES[fee.month]} {fee.year} Academy Fee
+                            </p>
+                            <p className="text-xl font-semibold mt-1">LKR {fee.amountDue.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Due: {new Date(fee.dueDate).toLocaleDateString('en-LK', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
                           </div>
+                          <Button
+                            className="bg-destructive hover:bg-destructive/90 gap-2 shrink-0"
+                            onClick={() => handlePayNow(fee)}
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            Pay Now
+                          </Button>
                         </div>
                       );
                     })}
@@ -165,9 +215,13 @@ export function ParentDashboard() {
                   <h3 className="mb-4">My Children ({linkedChildren.length})</h3>
                   <div className="grid gap-4 md:grid-cols-2">
                     {linkedChildren.map((child) => {
-                      const childPayments = payments.filter(p => p.playerId === child.id);
-                      const overdueCount = childPayments.filter(p => p.status === 'overdue').length;
-                      const pendingCount = childPayments.filter(p => p.status === 'pending').length;
+                      const overdueCount = getOverdueFees(child.id).length;
+                      const pendingCount = getPendingFees(child.id).length;
+                      const paidCount = getFeesByChild(child.id).filter(f => f.status === 'paid').length;
+                      const nextUnpaidFee = [
+                        ...getOverdueFees(child.id),
+                        ...getPendingFees(child.id),
+                      ][0];
 
                       return (
                         <Card
@@ -186,16 +240,22 @@ export function ParentDashboard() {
                               <p className="text-sm text-muted-foreground">
                                 Age: {child.age} • {child.role}
                               </p>
-                              {(overdueCount > 0 || pendingCount > 0) && (
-                                <div className="flex gap-2 mt-2">
+                              {/* Payment badge pills */}
+                              {!loadingFees && (
+                                <div className="flex flex-wrap gap-2 mt-2">
                                   {overdueCount > 0 && (
-                                    <span className="text-xs px-2 py-1 bg-destructive/10 text-destructive rounded">
+                                    <span className="text-xs px-2 py-1 bg-destructive/10 text-destructive rounded-full font-medium">
                                       {overdueCount} Overdue
                                     </span>
                                   )}
                                   {pendingCount > 0 && (
-                                    <span className="text-xs px-2 py-1 bg-warning/10 text-warning rounded">
+                                    <span className="text-xs px-2 py-1 bg-warning/10 text-warning rounded-full font-medium">
                                       {pendingCount} Pending
+                                    </span>
+                                  )}
+                                  {paidCount > 0 && overdueCount === 0 && pendingCount === 0 && (
+                                    <span className="text-xs px-2 py-1 bg-success/10 text-success rounded-full font-medium">
+                                      All Paid
                                     </span>
                                   )}
                                 </div>
@@ -203,6 +263,7 @@ export function ParentDashboard() {
                             </div>
                           </div>
 
+                          {/* Stats grid */}
                           <div className="grid grid-cols-4 gap-2 mb-4">
                             <div className="text-center p-2 bg-muted/50 rounded">
                               <p className="mb-1">{child.stats.matches}</p>
@@ -222,17 +283,74 @@ export function ParentDashboard() {
                             </div>
                           </div>
 
-                          <Button
-                            variant="outline"
-                            className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                          onClick={(e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              handleViewProfile(child.id);
-                            }}
-                          >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Full Profile
-                          </Button>
+                          {/* Payment summary row */}
+                          {!loadingFees && (
+                            <div className="flex items-center gap-2 mb-4 p-3 bg-muted/30 rounded-lg">
+                              <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" />
+                              <div className="flex-1 text-sm">
+                                {overdueCount > 0 ? (
+                                  <span className="text-destructive font-medium">
+                                    LKR {getOverdueFees(child.id).reduce((s, f) => s + f.amountDue, 0).toLocaleString()} overdue
+                                  </span>
+                                ) : pendingCount > 0 ? (
+                                  <span className="text-warning font-medium">
+                                    LKR {getPendingFees(child.id).reduce((s, f) => s + f.amountDue, 0).toLocaleString()} pending
+                                  </span>
+                                ) : paidCount > 0 ? (
+                                  <span className="text-success font-medium flex items-center gap-1">
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    Payments up to date
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">No fee records yet</span>
+                                )}
+                              </div>
+                              {/* Quick pay button for next unpaid fee */}
+                              {nextUnpaidFee && (
+                                <Button
+                                  size="sm"
+                                  className={`gap-1 shrink-0 ${
+                                    nextUnpaidFee.status === 'overdue'
+                                      ? 'bg-destructive hover:bg-destructive/90'
+                                      : 'bg-primary hover:bg-primary/90'
+                                  }`}
+                                  onClick={(e: React.MouseEvent) => {
+                                    e.stopPropagation();
+                                    handlePayNow(nextUnpaidFee);
+                                  }}
+                                >
+                                  <CreditCard className="w-3.5 h-3.5" />
+                                  Pay
+                                </Button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Action buttons */}
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              className="flex-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                              onClick={(e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                handleViewProfile(child.id);
+                              }}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Profile
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="flex-1 border-muted-foreground/30 text-muted-foreground hover:bg-muted"
+                              onClick={(e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                navigate('/parent/payments');
+                              }}
+                            >
+                              <Clock className="w-4 h-4 mr-2" />
+                              All Payments
+                            </Button>
+                          </div>
                         </Card>
                       );
                     })}

@@ -701,6 +701,20 @@ router.post('/redeem-code', authMiddleware, async (req, res) => {
             parentUserID: req.user.id
         });
 
+        // ── Ensure parentplayerlink row exists (payment system uses this table) ──
+        const sequelize = require('../config/database');
+        const [existingLinks] = await sequelize.query(
+            'SELECT linkID FROM parentplayerlink WHERE parentUserID = ? AND playerUserID = ?',
+            { replacements: [req.user.id, inviteCode.playerUserID] }
+        );
+        if (existingLinks.length === 0) {
+            await sequelize.query(
+                'INSERT INTO parentplayerlink (parentUserID, playerUserID) VALUES (?, ?)',
+                { replacements: [req.user.id, inviteCode.playerUserID] }
+            );
+            console.log(`[parentplayerlink] Linked parent ${req.user.id} → player ${inviteCode.playerUserID}`);
+        }
+
         // Fetch the linked player's details
         const player = await User.findByPk(inviteCode.playerUserID, {
             include: [{
@@ -815,6 +829,95 @@ router.get('/linked-children', authMiddleware, async (req, res) => {
     } catch (error) {
         console.error('Get linked children error:', error);
         res.status(500).json({ message: 'Server error while fetching linked children' });
+    }
+});
+
+// @route   PUT /api/auth/update-photo
+// @desc    Update profile photo URL for the logged-in user
+// @access  Private
+router.put('/update-photo', authMiddleware, async (req, res) => {
+    try {
+        const { photoURL } = req.body;
+        if (!photoURL) {
+            return res.status(400).json({ message: 'Photo URL is required' });
+        }
+
+        // For players: store in PlayerProfile
+        if (req.user.role === 'player') {
+            const { PlayerProfile } = require('../models');
+            const profile = await PlayerProfile.findOne({ where: { playerUserID: req.user.id } });
+            if (profile) {
+                await profile.update({ photoURL });
+            } else {
+                await PlayerProfile.create({ playerUserID: req.user.id, photoURL });
+            }
+        }
+
+        // For all roles: store on the user object in a photoURL column
+        // (We store it in AuditLog metadata as a universal fallback -
+        //  the frontend will persist the base64 in localStorage for non-players)
+        await AuditLog.create({
+            userID: req.user.id,
+            action: 'PROFILE_PHOTO_UPDATED',
+            entity: 'User',
+            entityID: req.user.id,
+            timestamp: new Date()
+        });
+
+        res.json({ message: 'Profile photo updated successfully', photoURL });
+    } catch (error) {
+        console.error('Update photo error:', error);
+        res.status(500).json({ message: 'Server error while updating photo' });
+    }
+});
+
+// @route   PUT /api/auth/update-contact
+// @desc    Update email and phone for the logged-in user
+// @access  Private
+router.put('/update-contact', authMiddleware, async (req, res) => {
+    try {
+        const { email, phone } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+
+        const user = await User.findByPk(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Check if new email is taken by another user
+        if (email !== user.email) {
+            const existing = await User.findOne({ where: { email } });
+            if (existing) {
+                return res.status(400).json({ message: 'This email is already in use by another account' });
+            }
+        }
+
+        await user.update({ email, phone: phone || user.phone });
+
+        await AuditLog.create({
+            userID: req.user.id,
+            action: 'CONTACT_UPDATED',
+            entity: 'User',
+            entityID: req.user.id,
+            timestamp: new Date()
+        });
+
+        res.json({
+            message: 'Contact details updated successfully',
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        console.error('Update contact error:', error);
+        res.status(500).json({ message: 'Server error while updating contact' });
     }
 });
 
