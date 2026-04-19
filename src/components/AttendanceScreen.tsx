@@ -47,7 +47,7 @@ export function AttendanceScreen() {
   const [players, setPlayers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [attendance, setAttendance] = useState<Record<string, AttendanceRecord>>({});
-  const [selectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate] = useState<string>(new Date().toLocaleDateString('en-CA')); // Uses local timezone instead of UTC
   const [isSaving, setIsSaving] = useState(false);
 
   // Session state
