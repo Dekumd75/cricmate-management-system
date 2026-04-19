@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Fee, PaymentTransaction, PaymentSummary, MONTH_NAMES } from '../services/paymentService';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'https://cricmate-backend.azurewebsites.net/api';
 const auth = () => ({
   'Content-Type': 'application/json',
   Authorization: `Bearer ${localStorage.getItem('token')}`,

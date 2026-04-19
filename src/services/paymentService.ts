@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'https://cricmate-backend.azurewebsites.net/api';
 
 const getAuthHeaders = () => ({
   'Content-Type': 'application/json',

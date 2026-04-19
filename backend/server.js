@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -53,6 +54,16 @@ app.use('/api/session', require('./routes/sessionRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+
+// Serve React frontend in production
+if (process.env.NODE_ENV === 'production') {
+    const buildPath = path.join(__dirname, 'build');
+    app.use(express.static(buildPath));
+    app.get('*', (req, res) => {
+        if (req.path.startsWith('/api')) return res.status(404).json({ message: 'API route not found' });
+        res.sendFile(path.join(buildPath, 'index.html'));
+    });
+}
 
 // Test Database Connection and Sync Models
 sequelize.authenticate()

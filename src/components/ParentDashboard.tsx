@@ -7,7 +7,7 @@ import { MessageSquare, Link2, Eye, CreditCard, Loader2, AlertCircle, Clock, Che
 import { ParentSidebar } from './ParentSidebar';
 import api from '../services/api';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'https://cricmate-backend.azurewebsites.net/api';
 const auth = () => ({
   'Content-Type': 'application/json',
   Authorization: `Bearer ${localStorage.getItem('token')}`,

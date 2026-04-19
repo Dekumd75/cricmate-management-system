@@ -22,7 +22,7 @@ interface ReportCard {
   apiEndpoint: string;
 }
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://cricmate-backend.azurewebsites.net/api';
 
 const getAuthHeaders = () => ({
   'Content-Type': 'application/json',

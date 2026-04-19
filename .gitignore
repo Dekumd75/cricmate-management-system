@@ -39,3 +39,8 @@ __pycache__/
 
 # Test files
 test-email.js
+
+# Deployment artifacts (never commit these!)
+*.zip
+deploy_*.zip
+build_only.zip
