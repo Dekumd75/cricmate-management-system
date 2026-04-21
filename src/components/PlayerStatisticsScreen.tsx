@@ -350,17 +350,36 @@ export function PlayerStatisticsScreen() {
       return Math.max(0, num); // Ensure non-negative
     };
 
+    const validatedRuns = validateStat(runs);
+    const validatedWickets = validateStat(wickets);
+    const validatedStumps = validateStat(stumps);
+    const validatedOversBowled = validateStat(oversBowled);
+    const validatedRunsConceded = validateStat(runsConceded);
+    const validatedSixes = validateStat(sixes);
+    const validatedFours = validateStat(fours);
+    const validatedCatches = validateStat(catches);
+
+    // Business Logic Validations
+    if (validatedWickets > 10) {
+      toast.error('Wickets taken cannot be greater than 10');
+      return;
+    }
+    if ((validatedFours * 4) + (validatedSixes * 6) > validatedRuns) {
+      toast.error('Runs from boundaries cannot exceed total runs');
+      return;
+    }
+
     const stats: PlayerMatchStats = {
       playerId: currentStatPlayerId,
       playerName: player.name,
-      runs: validateStat(runs),
-      wickets: validateStat(wickets),
-      stumps: validateStat(stumps),
-      oversBowled: validateStat(oversBowled),
-      runsConceded: validateStat(runsConceded),
-      sixes: validateStat(sixes),
-      fours: validateStat(fours),
-      catches: validateStat(catches),
+      runs: validatedRuns,
+      wickets: validatedWickets,
+      stumps: validatedStumps,
+      oversBowled: validatedOversBowled,
+      runsConceded: validatedRunsConceded,
+      sixes: validatedSixes,
+      fours: validatedFours,
+      catches: validatedCatches,
       isOut
     };
 
@@ -473,6 +492,111 @@ export function PlayerStatisticsScreen() {
     });
 
     setPlayers(updatedPlayers);
+  };
+
+  const handleRunsChange = (val: string) => {
+    if (val === '') {
+      setRuns('');
+      return;
+    }
+    const newRuns = parseInt(val);
+    if (!isNaN(newRuns) && newRuns >= 0) {
+      setRuns(newRuns.toString());
+      // Adjust boundaries if they exceed the new total runs
+      const currentFoursRuns = (parseInt(fours) || 0) * 4;
+      const currentSixesRuns = (parseInt(sixes) || 0) * 6;
+      if (currentFoursRuns + currentSixesRuns > newRuns) {
+        setFours('');
+        setSixes('');
+        toast.info("Boundaries reset because runs were reduced", { id: 'bounds-reset' });
+      }
+    }
+  };
+
+  const handleFoursChange = (val: string) => {
+    if (val === '') { setFours(''); return; }
+    const currentRuns = parseInt(runs) || 0;
+    const currentSixesRuns = (parseInt(sixes) || 0) * 6;
+    const newFours = parseInt(val);
+    if (isNaN(newFours) || newFours < 0) return;
+    
+    if ((newFours * 4) + currentSixesRuns > currentRuns) {
+      toast.error('Runs from boundaries cannot exceed total runs', { id: 'runs-error' });
+      const maxFours = Math.floor((currentRuns - currentSixesRuns) / 4);
+      setFours(Math.max(0, maxFours).toString());
+    } else {
+      setFours(newFours.toString());
+    }
+  };
+
+  const handleSixesChange = (val: string) => {
+    if (val === '') { setSixes(''); return; }
+    const currentRuns = parseInt(runs) || 0;
+    const currentFoursRuns = (parseInt(fours) || 0) * 4;
+    const newSixes = parseInt(val);
+    if (isNaN(newSixes) || newSixes < 0) return;
+    
+    if ((newSixes * 6) + currentFoursRuns > currentRuns) {
+      toast.error('Runs from boundaries cannot exceed total runs', { id: 'runs-error' });
+      const maxSixes = Math.floor((currentRuns - currentFoursRuns) / 6);
+      setSixes(Math.max(0, maxSixes).toString());
+    } else {
+      setSixes(newSixes.toString());
+    }
+  };
+
+  const handleWicketsChange = (val: string) => {
+    if (val === '') { setWickets(''); return; }
+    const newWickets = parseInt(val);
+    if (isNaN(newWickets) || newWickets < 0) return;
+    if (newWickets > 10) {
+      toast.error('Wickets cannot be greater than 10', { id: 'wickets-error' });
+      setWickets('10');
+    } else {
+      setWickets(newWickets.toString());
+    }
+  };
+
+  const handleCatchesChange = (val: string) => {
+    if (val === '') { setCatches(''); return; }
+    const newCatches = parseInt(val);
+    if (isNaN(newCatches) || newCatches < 0) return;
+    if (newCatches > 10) {
+      toast.error('Catches cannot be greater than 10', { id: 'catches-error' });
+      setCatches('10');
+    } else {
+      setCatches(newCatches.toString());
+    }
+  };
+
+  const handleStumpsChange = (val: string) => {
+    if (val === '') { setStumps(''); return; }
+    const newStumps = parseInt(val);
+    if (isNaN(newStumps) || newStumps < 0) return;
+    if (newStumps > 10) {
+      toast.error('Stumpings cannot be greater than 10', { id: 'stumps-error' });
+      setStumps('10');
+    } else {
+      setStumps(newStumps.toString());
+    }
+  };
+
+  const handleOversChange = (val: string) => {
+    if (val === '') { setOversBowled(''); return; }
+    
+    if (val.includes('.')) {
+      const parts = val.split('.');
+      if (parts[1].length > 0) {
+        let balls = parseInt(parts[1]);
+        let overs = parseInt(parts[0] || '0');
+        if (balls >= 6) {
+          overs += Math.floor(balls / 6);
+          balls = balls % 6;
+          val = balls > 0 ? `${overs}.${balls}` : `${overs}`;
+        }
+      }
+    }
+    setOversBowled(val);
   };
 
   const filteredPlayers = Array.isArray(realPlayers)
@@ -909,7 +1033,7 @@ export function PlayerStatisticsScreen() {
                               min="0"
                               placeholder="0"
                               value={runs}
-                              onChange={(e) => setRuns(e.target.value)}
+                              onChange={(e) => handleRunsChange(e.target.value)}
                             />
                           </div>
 
@@ -921,7 +1045,7 @@ export function PlayerStatisticsScreen() {
                               min="0"
                               placeholder="0"
                               value={wickets}
-                              onChange={(e) => setWickets(e.target.value)}
+                              onChange={(e) => handleWicketsChange(e.target.value)}
                             />
                           </div>
 
@@ -933,7 +1057,7 @@ export function PlayerStatisticsScreen() {
                               min="0"
                               placeholder="0"
                               value={fours}
-                              onChange={(e) => setFours(e.target.value)}
+                              onChange={(e) => handleFoursChange(e.target.value)}
                             />
                           </div>
 
@@ -945,7 +1069,7 @@ export function PlayerStatisticsScreen() {
                               min="0"
                               placeholder="0"
                               value={sixes}
-                              onChange={(e) => setSixes(e.target.value)}
+                              onChange={(e) => handleSixesChange(e.target.value)}
                             />
                           </div>
 
@@ -958,7 +1082,7 @@ export function PlayerStatisticsScreen() {
                               step="0.1"
                               placeholder="0"
                               value={oversBowled}
-                              onChange={(e) => setOversBowled(e.target.value)}
+                              onChange={(e) => handleOversChange(e.target.value)}
                             />
                           </div>
 
@@ -982,7 +1106,7 @@ export function PlayerStatisticsScreen() {
                               min="0"
                               placeholder="0"
                               value={catches}
-                              onChange={(e) => setCatches(e.target.value)}
+                              onChange={(e) => handleCatchesChange(e.target.value)}
                             />
                           </div>
 
@@ -994,7 +1118,7 @@ export function PlayerStatisticsScreen() {
                               min="0"
                               placeholder="0"
                               value={stumps}
-                              onChange={(e) => setStumps(e.target.value)}
+                              onChange={(e) => handleStumpsChange(e.target.value)}
                             />
                           </div>
                         </div>
